@@ -47,6 +47,13 @@ export class PhotosComponent implements OnChanges,OnDestroy {
  async compress(file:File):Promise<Blob>{
   if(file.size>20*1024*1024)throw new Error('La foto supera 20 MB. Selecciona una versión más pequeña.');
   if(!/^image\/(jpeg|png|webp|heic|heif)$/.test(file.type) && !/\.(jpe?g|png|webp|heic|heif)$/i.test(file.name)) throw new Error('Utiliza JPEG, PNG, WebP o HEIC compatible. No se admiten SVG, RAW ni videos.');
+  const bytes=new Uint8Array(await file.slice(0,40).arrayBuffer());
+  const ascii=(start:number,len:number)=>String.fromCharCode(...bytes.slice(start,start+len));
+  const jpeg=bytes[0]===255&&bytes[1]===216&&bytes[2]===255;
+  const png=bytes[0]===137&&ascii(1,3)==='PNG'&&bytes[4]===13&&bytes[5]===10;
+  const webp=ascii(0,4)==='RIFF'&&ascii(8,4)==='WEBP';
+  const heif=ascii(4,4)==='ftyp'&&['heic','heix','hevc','hevx','mif1','msf1'].some(b=>ascii(8,32).includes(b));
+  if(!jpeg&&!png&&!webp&&!heif)throw new Error('El contenido del archivo no es una fotografía compatible. No basta con cambiar su extensión.');
   const url=URL.createObjectURL(file);
   try {
    const img=new Image();img.src=url;

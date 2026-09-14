@@ -56,3 +56,10 @@ test('preparation freezes recipe edits but delivery notes can still change',()=>
 test('CSV export quotes strings and neutralizes spreadsheet formulas',()=>{
  assert.equal(csvCell('=SUM(1,2)'),'"\'=SUM(1,2)"');assert.equal(csvCell('hola "flor"'),'"hola ""flor"""');
 });
+
+test('fractional payments and malformed emails are rejected',()=>{
+ const s=base(),o=order(s);const withOrder=saveOrder(s,o);
+ assert.throws(()=>addPayment(withOrder,o.id,0.2,'Nequi'),/enteros/);
+ o.email='invalid';assert.throws(()=>saveOrder(s,o),/correo/);
+ o.email='valid@example.com';assert.doesNotThrow(()=>saveOrder(s,o));
+});

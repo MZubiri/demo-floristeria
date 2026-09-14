@@ -59,6 +59,7 @@ export function validateOrder(o:Order):void {
  if(!/^\+?[\d\s()\-]{7,20}$/.test(o.phone.trim())) throw new Error('Revisa el teléfono del cliente.');
  if(!/^\d{4}-\d{2}-\d{2}$/.test(o.deliveryDate) || !/^\d{2}:\d{2}$/.test(o.time)) throw new Error('Selecciona una fecha y hora de entrega.');
  if(o.deliveryMethod==='Domicilio' && !o.address.trim()) throw new Error('Falta la dirección de entrega.');
+ if(o.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(o.email)) throw new Error('Revisa el correo electrónico.');
  if(!o.items.length) throw new Error('Agrega al menos un arreglo.');
  for(const l of o.items) {
   if(!l.name.trim()) throw new Error('El arreglo necesita un nombre.');
@@ -86,6 +87,7 @@ export function saveOrder(state:State,order:Order):State {
 }
 export function addPayment(state:State,id:string,amount:number,method:string,reference=''):State {
  positive(amount,'El abono');
+ if(!Number.isInteger(amount)) throw new Error('Registra el abono en pesos enteros.');
  const next=structuredClone(state), o=next.orders.find(o=>o.id===id);
  if(!o || o.status==='cancelado') throw new Error('Este pedido no admite pagos.');
  if(amount>balance(o)) throw new Error('El abono supera el saldo pendiente.');

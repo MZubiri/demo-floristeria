@@ -28,7 +28,7 @@ test('create a custom order, register payment and preserve it on reload',async({
  await modal.getByRole('button',{name:'Continuar',exact:true}).click();
  await modal.getByLabel('Mensaje de la tarjeta',{exact:true}).fill('Gracias por hacer florecer este día.');
  await modal.getByRole('button',{name:'Guardar pedido',exact:true}).click();
- await expect(page.getByRole('dialog').getByRole('heading',{name:/Cliente de prueba/})).toBeVisible();
+ await expect(page.getByRole('dialog').getByRole('heading',{name:/Cliente de prueba/,level:2})).toBeVisible();
  await page.getByRole('dialog').getByRole('button',{name:'Pagos',exact:true}).click();
  await page.getByLabel('Valor del abono *',{exact:true}).fill('80000');
  await page.getByRole('button',{name:'Guardar abono',exact:true}).click();
@@ -43,7 +43,8 @@ test('create a custom order, register payment and preserve it on reload',async({
 test('photo selection stores a local compressed image and survives reopening',async({page},testInfo)=>{
  await page.goto('/#pedidos');await page.getByRole('button',{name:'Ver pedido FL-1001',exact:true}).click();
  await page.getByRole('dialog').getByRole('button',{name:'Fotografías',exact:true}).click();
- const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aXioAAAAASUVORK5CYII=','base64');
+ const data=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=900;c.height=600;const ctx=c.getContext('2d')!;ctx.fillStyle='#e8eddf';ctx.fillRect(0,0,900,600);ctx.fillStyle='#c68c9b';for(let i=0;i<5;i++){ctx.beginPath();ctx.arc(280+i*80,280+(i%2)*55,65,0,Math.PI*2);ctx.fill();}return c.toDataURL('image/png').split(',')[1];});
+ const png=Buffer.from(data,'base64');
  await page.getByTestId('gallery-input').setInputFiles({name:'test-flor.png',mimeType:'image/png',buffer:png});
  await expect(page.getByRole('dialog').locator('.photo-grid img')).toHaveCount(1);
  await expect(page.getByRole('dialog').getByText('1 / 4',{exact:true})).toBeVisible();
@@ -78,4 +79,12 @@ test('order progression consumes once; search and payment validation remain sepa
  await page.getByRole('dialog').getByRole('button',{name:'En preparación',exact:true}).click();
  await expect(page.getByRole('dialog').getByText('En preparación',{exact:true})).toBeVisible();
  await expect(page.getByRole('dialog').getByText('Sin pagar',{exact:true})).toBeVisible();
+});
+
+test('disguised non-image upload is rejected without adding a photo',async({page})=>{
+ await page.goto('/#pedidos');await page.getByRole('button',{name:'Ver pedido FL-1001',exact:true}).click();
+ await page.getByRole('dialog').getByRole('button',{name:'Fotografías',exact:true}).click();
+ await page.getByTestId('gallery-input').setInputFiles({name:'not-really-a-photo.jpg',mimeType:'image/jpeg',buffer:Buffer.from('<html>not an image</html>')});
+ await expect(page.getByRole('dialog').getByRole('alert')).toContainText('contenido del archivo');
+ await expect(page.getByRole('dialog').locator('.photo-grid img')).toHaveCount(0);
 });
