@@ -9,11 +9,11 @@ Demo interactiva en Angular, diseñada para escritorio y Safari en iPhone. Ident
 Requiere Node.js 22.12+ (rama 22) o Node.js 24.
 
 ```sh
-npm install
+npm ci
 npm start
 ```
 
-Abrir http://localhost:4200. Para probar con un iPhone en la misma red: `npm start -- --host 0.0.0.0`, acceder a la IP local del computador. Para una prueba pública, usar HTTPS en Vercel o Coolify.
+Abrir http://localhost:4200 en el computador. Para probar desde un iPhone, desplegar por HTTPS en Vercel o Coolify: algunas funciones del navegador utilizadas por la demo requieren un contexto seguro. Una dirección IP local servida por HTTP no equivale a `localhost`.
 
 ## Compilar y probar
 
@@ -52,7 +52,7 @@ La compilación queda en `dist/flore/browser`. El workflow de GitHub Actions com
 
 La demo convierte a JPEG los archivos que el navegador puede decodificar, máximo 1600 px en el lado mayor, con límite de 20 MB/archivo, 50 MP y 4 fotos por pedido. HEIC/HEIF depende de la capacidad real del navegador: si no se puede abrir, se muestra una explicación para usar JPEG. **No se simula una conversión HEIC en servidor que todavía no existe.** No admite RAW ni video.
 
-Las imágenes se almacenan como Blob en IndexedDB; la exportación JSON incluye los registros pero **no las fotografías**. Borrar datos del sitio, cambiar de dispositivo o perder el equipo puede perder toda la demo. No hay subida en segundo plano.
+Las imágenes se almacenan como bytes binarios en IndexedDB y se reconstruyen como Blob para mostrarlas; se conservan compatibles los registros Blob de versiones anteriores. La exportación JSON incluye los registros pero **no las fotografías**. Borrar datos del sitio, cambiar de dispositivo o perder el equipo puede perder toda la demo. No hay subida en segundo plano.
 
 Las imágenes del catálogo son ilustraciones SVG originales incluidas en el repositorio. La galería utiliza únicamente archivos elegidos por el usuario. No hay fuentes, analítica ni fotografías remotas.
 

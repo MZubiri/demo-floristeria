@@ -47,12 +47,14 @@ test('photo selection stores a local compressed image and survives reopening',as
  const png=Buffer.from(data,'base64');
  await page.getByTestId('gallery-input').setInputFiles({name:'test-flor.png',mimeType:'image/png',buffer:png});
  await expect(page.getByRole('dialog').locator('.photo-grid img')).toHaveCount(1);
+ await expect.poll(()=>page.getByRole('dialog').locator('.photo-grid img').evaluate((img:HTMLImageElement)=>img.complete&&img.naturalWidth>0)).toBe(true);
  await expect(page.getByRole('dialog').getByText('1 / 4',{exact:true})).toBeVisible();
  await page.screenshot({path:testInfo.outputPath('04-fotografias.png'),fullPage:true});
  await page.getByRole('button',{name:'Cerrar ventana'}).click();await page.reload();
  await page.getByRole('button',{name:'Ver pedido FL-1001',exact:true}).click();
  await page.getByRole('dialog').getByRole('button',{name:'Fotografías',exact:true}).click();
  await expect(page.getByRole('dialog').locator('.photo-grid img')).toHaveCount(1);
+ await expect.poll(()=>page.getByRole('dialog').locator('.photo-grid img').evaluate((img:HTMLImageElement)=>img.complete&&img.naturalWidth>0)).toBe(true);
 });
 test('register waste and operating expense, export CSV',async({page})=>{
  await page.goto('/#inventario');await page.getByRole('button',{name:'Registrar merma',exact:true}).click();

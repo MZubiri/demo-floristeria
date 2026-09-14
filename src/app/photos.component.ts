@@ -1,7 +1,10 @@
 import { Component, Input, OnChanges, OnDestroy, signal } from '@angular/core';
 import { IconComponent } from './icon.component';
-interface StoredPhoto {id:string;orderId:string;kind:string;name:string;blob:Blob;date:string}
-interface PhotoView extends StoredPhoto {url:string}
+interface PhotoMetadata {id:string;orderId:string;kind:string;name:string;date:string}
+interface BinaryPhoto extends PhotoMetadata {bytes:ArrayBuffer;mimeType:string}
+interface LegacyPhoto extends PhotoMetadata {blob:Blob}
+type StoredPhoto = BinaryPhoto | LegacyPhoto;
+interface PhotoView extends PhotoMetadata {blob:Blob;url:string}
 function openDB():Promise<IDBDatabase>{
  return new Promise((resolve,reject)=>{
   const req=indexedDB.open('flore-demo-photos-v1',1);
@@ -12,10 +15,19 @@ function openDB():Promise<IDBDatabase>{
 async function photoTask<T>(mode:IDBTransactionMode,action:(s:IDBObjectStore)=>IDBRequest<T>):Promise<T>{
  const db=await openDB();
  return new Promise((resolve,reject)=>{
-  const tx=db.transaction('photos',mode), req=action(tx.objectStore('photos'));let result:T;
-  req.onsuccess=()=>{result=req.result;};
-  tx.oncomplete=()=>{db.close();resolve(result);};
-  tx.onerror=tx.onabort=()=>{db.close();reject(new Error('No se pudo guardar la fotografía. Revisa el espacio disponible.'));};
+  try {
+   const tx=db.transaction('photos',mode);let result:T;
+   tx.oncomplete=()=>{db.close();resolve(result);};
+   tx.onabort=()=>{
+    db.close();
+    const message=tx.error?.name==='QuotaExceededError'
+     ? 'No queda espacio para guardar la foto. Libera espacio en este dispositivo.'
+     : 'El navegador no pudo guardar la fotografía localmente. Inténtalo de nuevo.';
+    reject(new Error(message,{cause:tx.error}));
+   };
+   const req=action(tx.objectStore('photos'));
+   req.onsuccess=()=>{result=req.result;};
+  }catch(error){db.close();reject(error);}
  });
 }
 export async function clearPhotos(){await photoTask('readwrite',s=>s.clear());}
@@ -41,7 +53,13 @@ export class PhotosComponent implements OnChanges,OnDestroy {
  ngOnChanges(){this.load();}
  async load(){const id=this.orderId;try{
   const photos=await photoTask<StoredPhoto[]>('readonly',s=>s.index('orderId').getAll(id));
-  if(this.disposed||id!==this.orderId)return;this.release();this.photos.set(photos.map(p=>({...p,url:URL.createObjectURL(p.blob)})));
+  if(this.disposed||id!==this.orderId)return;
+  const views=photos.map(p=>{
+   // Read earlier Blob records as well as the portable binary representation.
+   const blob='bytes' in p?new Blob([p.bytes],{type:p.mimeType}):p.blob;
+   return {...p,blob,url:URL.createObjectURL(blob)};
+  });
+  this.release();this.photos.set(views);
  }catch(e){this.error.set((e as Error).message);}}
  size(bytes:number){return Math.round(bytes/1024)+' KB';}
  async compress(file:File):Promise<Blob>{
@@ -67,18 +85,21 @@ export class PhotosComponent implements OnChanges,OnDestroy {
   }finally{URL.revokeObjectURL(url);}
  }
  async choose(event:Event,kind:string){
-  const input=event.target as HTMLInputElement, files=Array.from(input.files||[]);input.value='';
+  const input=event.target as HTMLInputElement, files=Array.from(input.files||[]);
   if(!files.length||this.busy())return;this.busy.set(true);this.error.set('');
   const room=4-this.photos().length;
   try{
    for(const file of files.slice(0,room)){
     const blob=await this.compress(file);if(this.disposed)break;
-    const photo:StoredPhoto={id:crypto.randomUUID(),orderId:this.orderId,kind,name:file.name,blob,date:new Date().toISOString()};
+    // Materialize bytes before opening the transaction; WebKit's temporary
+    // contexts can reject Blob persistence even when image decoding succeeds.
+    const bytes=await blob.arrayBuffer();if(this.disposed)break;
+    const photo:BinaryPhoto={id:crypto.randomUUID(),orderId:this.orderId,kind,name:file.name,bytes,mimeType:blob.type,date:new Date().toISOString()};
     await photoTask('readwrite',s=>s.add(photo));
    }
    if(files.length>room)this.error.set('Solo se guardaron las fotos que caben en el límite de 4 por pedido.');
   }catch(e){this.error.set((e as Error).message);}
-  finally{if(!this.disposed){await this.load();this.busy.set(false);}}
+  finally{input.value='';if(!this.disposed){await this.load();this.busy.set(false);}}
  }
  async remove(photo:PhotoView){if(!confirm('¿Eliminar esta fotografía local de la demo?'))return;try{await photoTask('readwrite',s=>s.delete(photo.id));await this.load();}catch(e){this.error.set((e as Error).message);}}
  release(){this.photos().forEach(p=>URL.revokeObjectURL(p.url));}
