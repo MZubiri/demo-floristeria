@@ -1,0 +1,17 @@
+{
+  "name": "Floré · Gestión de floristería",
+  "short_name": "Floré",
+  "lang": "es",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f7f8f4",
+  "theme_color": "#385a48",
+  "icons": [
+    {
+      "src": "assets/mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

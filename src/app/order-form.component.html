@@ -1,0 +1,69 @@
+<app-dialog [title]="editing ? 'Editar '+draft.number : 'Un nuevo detalle por crear'" [wide]="true" (dismiss)="close()">
+ <div class="wizard-steps" aria-label="Pasos del pedido">
+ @for(label of ['Cliente y entrega','Arreglo y materiales','Dedicatoria y resumen'];track label;let i=$index){<div [class.active]="step===i" [class.done]="step>i"><span>{{i+1}}</span><small>{{label}}</small></div>}
+ </div>
+ <form (ngSubmit)="submit()" class="wizard-form">
+ <div class="modal-scroll">
+ @if(error() || serverError){<p class="error" role="alert">{{error() || serverError}}</p>}
+ @if(step===0){
+ <div class="form-section-title"><app-icon name="users"/><div><h3>¿Quién envía las flores?</h3><p>Los datos del comprador son distintos a los del destinatario.</p></div></div>
+ <div class="form-grid">
+ <label>Nombre del cliente *<input name="customer" [(ngModel)]="draft.customer" required autocomplete="name" placeholder="Ej. Camila Torres" maxlength="100"></label>
+ <label>Teléfono del cliente *<input name="phone" [(ngModel)]="draft.phone" required type="tel" autocomplete="tel" placeholder="300 123 4567" maxlength="20"></label>
+ <label class="span-2">Correo electrónico<input name="email" [(ngModel)]="draft.email" type="email" autocomplete="email" placeholder="Opcional" maxlength="160"></label>
+ </div>
+ <div class="form-section-title"><app-icon name="pin"/><div><h3>¿Quién recibe el detalle?</h3><p>La dirección se guarda con este pedido.</p></div></div>
+ <div class="form-grid">
+ <label>Nombre del destinatario *<input name="recipient" [(ngModel)]="draft.recipient" required placeholder="Ej. Isabel Torres" maxlength="100"></label>
+ <label>Teléfono del destinatario<input name="recipientPhone" [(ngModel)]="draft.recipientPhone" type="tel" placeholder="Opcional" maxlength="20"></label>
+ <label>Método de entrega<select name="deliveryMethod" [(ngModel)]="draft.deliveryMethod"><option>Domicilio</option><option>Recoger en tienda</option></select></label>
+ <label>Barrio o zona<input name="area" [(ngModel)]="draft.area" placeholder="Ej. Chapinero" maxlength="80"></label>
+ @if(draft.deliveryMethod==='Domicilio'){<label class="span-2">Dirección de entrega *<input name="address" [(ngModel)]="draft.address" required placeholder="Calle, número y referencias" maxlength="240"></label>}
+ <label>Fecha de entrega *<input name="deliveryDate" [(ngModel)]="draft.deliveryDate" required type="date"></label>
+ <label>Hora de entrega *<input name="time" [(ngModel)]="draft.time" required type="time"></label>
+ <label>Prioridad<select name="priority" [(ngModel)]="draft.priority"><option>Normal</option><option>Alta</option></select></label>
+ </div>
+ }
+ @if(step===1){
+ <div class="form-section-title"><app-icon name="flower"/><div><h3>Un arreglo, mil posibilidades</h3><p>Elige del catálogo o personaliza flores y materiales.</p></div></div>
+ @if(draft.consumed){<p class="notice">Los materiales ya se consumieron. En esta demo puedes editar la entrega, tarjeta y notas, pero no la receta.</p>}
+ <fieldset [disabled]="draft.consumed" class="plain-fieldset">
+ <div class="add-line"><label class="grow">Producto del catálogo<select name="product" [(ngModel)]="productId">@for(p of state.products;track p.id){<option [value]="p.id">{{p.name}} · {{money(p.price)}}</option>}</select></label><button type="button" class="button primary" (click)="add()"><app-icon name="plus"/>Agregar</button></div>
+ <button type="button" class="text-button" (click)="custom()">+ Crear arreglo personalizado</button>
+ @for(line of draft.items;track line.id;let i=$index){
+ <div class="line-editor">
+ <div class="line-editor-head"><span class="eyebrow">ARREGLO {{i+1}}</span><button type="button" class="icon-button danger-text" [attr.aria-label]="'Quitar '+line.name" (click)="draft.items.splice(i,1)"><app-icon name="trash"/></button></div>
+ <div class="form-grid three">
+ <label class="grow">Nombre<input [name]="'name'+i" [(ngModel)]="line.name" maxlength="100"></label>
+ <label>Cantidad<input [name]="'qty'+i" [(ngModel)]="line.quantity" type="number" min="1" max="100" step="1" inputmode="numeric"></label>
+ <label>Precio unitario<input [name]="'price'+i" [(ngModel)]="line.price" type="number" min="1" step="1000" inputmode="numeric"></label>
+ </div>
+ <label>Personalización<textarea [name]="'notes'+i" [(ngModel)]="line.notes" rows="2" maxlength="1000" placeholder="Colores, envoltura, tamaño, complementos…"></textarea></label>
+ <button class="text-button small" type="button" (click)="recipeOpen=recipeOpen===line.id?'':line.id"><app-icon name="leaf"/>{{recipeOpen===line.id?'Ocultar':'Revisar'}} receta y costos</button>
+ @if(recipeOpen===line.id){
+ <p class="micro">Cantidades por cada arreglo. El costo unitario queda guardado en el pedido.</p>
+ <div class="recipe-list">@for(r of line.recipe;track r.materialId){<label><span>{{material(r.materialId)}}</span><input [attr.aria-label]="'Cantidad de '+material(r.materialId)" [name]="'r'+i+r.materialId" [(ngModel)]="r.quantity" type="number" min="0" step="0.5" inputmode="decimal"></label>}</div>
+ <div class="add-line"><label class="grow">Añadir material<select #mat><option value="">Seleccionar material</option>@for(m of state.materials;track m.id){<option [value]="m.id">{{m.name}}</option>}</select></label><button class="button secondary small" type="button" (click)="addIngredient(line,mat.value)">Añadir</button></div>
+ <label>Mano de obra por arreglo<input [name]="'labor'+i" [(ngModel)]="line.labor" type="number" min="0" inputmode="numeric"></label>
+ }
+ </div>
+ }
+ @if(!draft.items.length){<div class="empty compact"><app-icon name="flower"/><p>Empieza agregando el primer arreglo.</p></div>}
+ </fieldset>
+ <div class="form-grid"><label>Costo de domicilio cobrado<input name="shipping" [(ngModel)]="draft.shipping" type="number" min="0" inputmode="numeric"></label><label>Descuento del pedido<input name="discount" [(ngModel)]="draft.discount" type="number" min="0" inputmode="numeric"></label></div>
+ }
+ @if(step===2){
+ <div class="form-section-title"><app-icon name="mail"/><div><h3>Las palabras que acompañan</h3><p>Una dedicatoria asociada únicamente a este pedido.</p></div></div>
+ <label class="checkbox-line"><input type="checkbox" name="hasCard" [(ngModel)]="draft.hasCard">Incluir tarjeta con mensaje</label>
+ @if(draft.hasCard){<label>Mensaje de la tarjeta<textarea name="cardMessage" [(ngModel)]="draft.cardMessage" rows="4" maxlength="1500" placeholder="Escribe aquí esas palabras especiales…"></textarea></label>}
+ <label>Notas e instrucciones especiales<textarea name="notes" [(ngModel)]="draft.notes" rows="3" maxlength="2000" placeholder="Presentación, referencias de entrega, llamar antes…"></textarea></label>
+ <div class="review-card"><span class="eyebrow">ANTES DE GUARDAR</span><h3>{{draft.customer}} <span class="muted">para</span> {{draft.recipient}}</h3><p>{{draft.deliveryDate}} · {{draft.time}} · {{draft.deliveryMethod}}</p><p>{{draft.address}} {{draft.area}}</p><div class="summary-lines">@for(l of draft.items;track l.id){<div><span>{{l.quantity}} × {{l.name}}</span><strong>{{money(l.quantity*l.price)}}</strong></div>}<div><span>Domicilio</span><span>{{money(draft.shipping)}}</span></div><div><span>Descuento</span><span>− {{money(draft.discount)}}</span></div><div class="total-row"><span>Total del pedido</span><strong>{{money(total(draft))}}</strong></div></div></div>
+ <p class="notice"><app-icon name="info"/>Guarda el pedido para adjuntar fotografías y registrar abonos desde su ficha.</p>
+ }
+ </div>
+ <footer class="modal-footer"><div><small>Total del pedido</small><strong>{{money(total(draft))}}</strong></div><div class="button-row">
+ @if(step>0){<button type="button" class="button secondary" (click)="step=step-1">Atrás</button>}
+ @if(step<2){<button type="button" class="button primary" (click)="next()">Continuar<app-icon name="arrow"/></button>}@else{<button class="button primary" type="submit"><app-icon name="check"/>Guardar pedido</button>}
+ </div></footer>
+ </form>
+</app-dialog>

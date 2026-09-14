@@ -1,0 +1,50 @@
+name: Validate Angular demo
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install dependencies
+        run: npm install
+      - name: Unit tests
+        run: npm run test:unit
+      - name: Production build
+        run: npm run build
+      - name: Install browsers
+        run: npx playwright install --with-deps chromium webkit
+      - name: Browser tests
+        run: npm run test:e2e
+      - name: Upload production build
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flore-production-build
+          path: dist/flore/browser
+          retention-days: 14
+      - name: Upload browser report and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flore-browser-tests
+          path: |
+            playwright-report
+            test-results
+          retention-days: 14
+      - name: Upload dependency lock
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flore-dependency-lock
+          path: package-lock.json
+          retention-days: 14
