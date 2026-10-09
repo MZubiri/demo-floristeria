@@ -39,6 +39,52 @@ export class AppComponent implements OnInit, OnDestroy {
   readonly loginError = signal<string>('');
   readonly currentUser = computed(() => this.apiService.user);
 
+  readonly isAdmin = computed(() => {
+    const r = (this.currentUser()?.roleName || '').toLowerCase();
+    return r.includes('admin');
+  });
+
+  readonly isCajero = computed(() => {
+    const r = (this.currentUser()?.roleName || '').toLowerCase();
+    return r.includes('cajer');
+  });
+
+  readonly isFlorista = computed(() => {
+    const r = (this.currentUser()?.roleName || '').toLowerCase();
+    return r.includes('floris');
+  });
+
+  readonly isRepartidor = computed(() => {
+    const r = (this.currentUser()?.roleName || '').toLowerCase();
+    return r.includes('repart');
+  });
+
+  hasPermission(perm: string): boolean {
+    if (this.isAdmin()) return true;
+    const u = this.currentUser();
+    if (!u) return false;
+    const userPerms = u.permissions || [];
+    if (userPerms.includes('*') || userPerms.includes(perm)) return true;
+
+    // Role-based defaults fallback
+    const r = (u.roleName || '').toLowerCase();
+    if (r.includes('cajer')) {
+      return ['inicio', 'pedidos', 'pagos', 'contactos', 'asistencia', 'pos', 'arqueo'].includes(perm);
+    }
+    if (r.includes('floris')) {
+      return ['inicio', 'pedidos', 'agenda', 'catalogo', 'inventario', 'asistencia'].includes(perm);
+    }
+    if (r.includes('repart')) {
+      return ['inicio', 'pedidos', 'agenda', 'asistencia'].includes(perm);
+    }
+    return false;
+  }
+
+  readonly filteredNavItems = computed(() => {
+    if (this.isAdmin()) return this.navItems;
+    return this.navItems.filter(item => this.hasPermission(item.id));
+  });
+
   get userInitials(): string {
     const name = this.currentUser()?.name || 'Administrador';
     return name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
@@ -152,11 +198,180 @@ export class AppComponent implements OnInit, OnDestroy {
   // ==========================================
   // MODALES DE USUARIOS Y ROLES
   // ==========================================
+  // MODALES DE USUARIOS Y ROLES & MATRIZ DE PERMISOS
+  // ==========================================
+  userSubTab: 'usuarios' | 'permisos' = 'usuarios';
   userModal = false;
   userSearch = '';
   userForm = { id: 0, name: '', email: '', phone: '', roleId: 1, isActive: true };
   roleModal = false;
-  roleForm = { id: 0, name: '', description: '' };
+  roleForm = { id: 0, name: '', description: '', permissions: [] as string[] };
+
+  readonly systemActions = [
+    { id: 'pedidos', name: 'Gestión de Pedidos', desc: 'Crear, consultar y editar pedidos florales de clientes', group: 'Operaciones' },
+    { id: 'pos', name: 'Punto de Venta (POS)', desc: 'Registrar ventas directas de mostrador y cobros físicos', group: 'Operaciones' },
+    { id: 'agenda', name: 'Agenda de Entregas', desc: 'Consultar programación de despachos y repartos del día', group: 'Taller y Logística' },
+    { id: 'catalogo', name: 'Catálogo y Recetas', desc: 'Gestionar productos florales, precios y fichas técnicas', group: 'Taller y Logística' },
+    { id: 'inventario', name: 'Inventario y Merma', desc: 'Consultar stock de flores, entradas y mermas por deterioro', group: 'Taller y Logística' },
+    { id: 'asistencia', name: 'Pase de Lista', desc: 'Registrar entradas, salidas y checador de asistencia del equipo', group: 'Equipo y Gestión' },
+    { id: 'pagos', name: 'Cobros y Finanzas', desc: 'Conciliación de pagos, abonos y cuentas por cobrar', group: 'Administración' },
+    { id: 'gastos', name: 'Gastos Operativos', desc: 'Registro de desembolsos, servicios y domicilios', group: 'Administración' },
+    { id: 'contactos', name: 'Clientes y Proveedores', desc: 'Directorios de clientes frecuentes y proveedores florales', group: 'Administración' },
+    { id: 'informes', name: 'Informes y Rentabilidad', desc: 'Métricas de utilidad, ventas y rankings de negocio', group: 'Administración' },
+    { id: 'usuarios', name: 'Usuarios y Roles', desc: 'Gestión de colaboradores, accesos y permisos', group: 'Seguridad' },
+    { id: 'arqueo', name: 'Arqueo de Caja', desc: 'Cierre diario de caja y conciliación de efectivo', group: 'Administración' },
+    { id: 'backup', name: 'Copias de Seguridad', desc: 'Generar y descargar respaldos íntegros de la base de datos MySQL', group: 'Seguridad' },
+    { id: 'ajustes', name: 'Configuración General', desc: 'Parámetros del negocio y sincronización de tienda web', group: 'Seguridad' }
+  ];
+
+  isActionGranted(role: Role, actionId: string): boolean {
+    if (role.name.toLowerCase().includes('admin')) return true;
+    const perms = role.permissions || [];
+    if (perms.includes('*') || perms.includes(actionId)) return true;
+    return false;
+  }
+
+  toggleRolePermission(actionId: string) {
+    if (this.roleForm.permissions.includes(actionId)) {
+      this.roleForm.permissions = this.roleForm.permissions.filter(p => p !== actionId);
+    } else {
+      this.roleForm.permissions.push(actionId);
+    }
+  }
+
+  // ==========================================
+  // PASE DE LISTA, HUELLA DEL EQUIPO Y SALIDA
+  // ==========================================
+  checkInModal = false;
+  checkInNotes = '';
+  checkingIn = false;
+  logoutModal = false;
+  logoutNotes = '';
+  clockingOut = false;
+  readonly deviceSummary = computed(() => this.getDeviceSummary());
+
+  getDeviceFingerprint(): string {
+    if (typeof window === 'undefined') return 'Servidor';
+    let deviceId = localStorage.getItem('lacarreta_device_id');
+    if (!deviceId) {
+      deviceId = 'DEV-' + crypto.randomUUID().slice(0, 8).toUpperCase();
+      localStorage.setItem('lacarreta_device_id', deviceId);
+    }
+    const screen = `${window.screen?.width || 0}x${window.screen?.height || 0}`;
+    const lang = navigator.language || 'es-CO';
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Bogota';
+    const platform = (navigator as any).userAgentData?.platform || navigator.platform || 'PC/Móvil';
+    const ua = navigator.userAgent;
+    let browser = 'Navegador Web';
+    if (ua.includes('Edg/')) browser = 'Edge';
+    else if (ua.includes('Chrome/')) browser = 'Chrome';
+    else if (ua.includes('Safari/') && !ua.includes('Chrome/')) browser = 'Safari';
+    else if (ua.includes('Firefox/')) browser = 'Firefox';
+
+    return `ID: ${deviceId} | Dispositivo: ${platform} | Pantalla: ${screen} | Navegador: ${browser} | Zona: ${tz} | Idioma: ${lang}`;
+  }
+
+  getDeviceSummary(): { id: string; platform: string; screen: string; browser: string } {
+    let deviceId = (typeof window !== 'undefined' ? localStorage.getItem('lacarreta_device_id') : null) || '';
+    if (!deviceId && typeof window !== 'undefined') {
+      deviceId = 'DEV-' + crypto.randomUUID().slice(0, 8).toUpperCase();
+      localStorage.setItem('lacarreta_device_id', deviceId);
+    }
+    const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+    let browser = 'Chrome';
+    if (ua.includes('Edg/')) browser = 'Edge';
+    else if (ua.includes('Safari/') && !ua.includes('Chrome/')) browser = 'Safari';
+    else if (ua.includes('Firefox/')) browser = 'Firefox';
+    const platform = typeof navigator !== 'undefined' ? ((navigator as any).userAgentData?.platform || navigator.platform || 'Dispositivo') : 'Web';
+    const screen = typeof window !== 'undefined' ? `${window.screen?.width || 0}x${window.screen?.height || 0}` : '1920x1080';
+    return { id: deviceId || 'DEV-LOCAL', platform, screen, browser };
+  }
+
+  async checkDailyAttendancePrompt() {
+    if (!this.isLoggedIn() || this.isAdmin()) return;
+    const user = this.currentUser();
+    if (!user) return;
+    try {
+      const todayAtt = await this.apiService.getTodayAttendance(user.id);
+      if (!todayAtt || !todayAtt.clockIn) {
+        this.checkInNotes = '';
+        this.checkInModal = true;
+      }
+    } catch (e) {
+      console.warn('Error al verificar asistencia del día', e);
+    }
+  }
+
+  async confirmCheckIn() {
+    const user = this.currentUser();
+    if (!user) return;
+    this.checkingIn = true;
+    try {
+      const fingerprint = this.getDeviceFingerprint();
+      await this.apiService.clockIn({
+        userId: user.id,
+        notes: this.checkInNotes || 'Pase de lista al iniciar jornada',
+        deviceFingerprint: fingerprint
+      });
+      this.checkInModal = false;
+      this.notify('¡Pase de lista registrado con éxito! Tu hora de entrada y la huella del equipo quedaron guardadas.');
+      await this.store.refreshFromDatabase();
+    } catch (e) {
+      this.notify('Error al registrar entrada: ' + (e as Error).message);
+    } finally {
+      this.checkingIn = false;
+    }
+  }
+
+  onLogoutClick() {
+    if (this.isAdmin()) {
+      this.doLogout();
+      return;
+    }
+    this.logoutNotes = '';
+    this.logoutModal = true;
+  }
+
+  async confirmLogoutWithClockOut() {
+    const user = this.currentUser();
+    if (!user) {
+      this.doLogout();
+      return;
+    }
+    this.clockingOut = true;
+    try {
+      const fingerprint = this.getDeviceFingerprint();
+      await this.apiService.clockOut({
+        userId: user.id,
+        notes: this.logoutNotes || 'Registro de salida al cerrar jornada',
+        deviceFingerprint: fingerprint
+      });
+      this.notify('¡Salida registrada con éxito y huella del equipo!');
+    } catch (e) {
+      console.warn('No se pudo registrar salida en BD', e);
+    } finally {
+      this.clockingOut = false;
+      this.logoutModal = false;
+      this.doLogout();
+    }
+  }
+
+  confirmLogoutOnly() {
+    this.logoutModal = false;
+    this.doLogout();
+  }
+
+  async softDeleteOrderClick(o: Order) {
+    if (!confirm(`¿Estás seguro de que deseas eliminar lógicamente el pedido ${o.number} de ${o.customer}? No aparecerá en las listas activas pero su información se conservará en la base de datos.`)) return;
+    try {
+      await this.apiService.softDeleteOrder(o.id);
+      this.closeDetail();
+      await this.store.refreshFromDatabase();
+      this.notify(`Pedido ${o.number} eliminado lógicamente con éxito.`);
+    } catch (e) {
+      this.notify('Error al eliminar pedido: ' + (e as Error).message);
+    }
+  }
 
   // ==========================================
   // MODALES DE PRODUCTOS Y RECETAS
@@ -212,6 +427,7 @@ export class AppComponent implements OnInit, OnDestroy {
       this.store.refreshFromDatabase();
       this.checkWebSyncStatus();
       this.loadBackups();
+      this.checkDailyAttendancePrompt();
     }
     this.startAutoSync();
   }
@@ -238,6 +454,20 @@ export class AppComponent implements OnInit, OnDestroy {
       await this.store.refreshFromDatabase();
       this.checkWebSyncStatus();
       this.notify(`¡Bienvenido a Florería La Carreta, ${this.currentUser()?.name || ''}!`);
+
+      // Set default landing view according to role
+      const role = (this.currentUser()?.roleName || '').toLowerCase();
+      if (role.includes('repart')) {
+        this.view.set('agenda');
+      } else if (role.includes('floris')) {
+        this.view.set('pedidos');
+      } else if (role.includes('cajer')) {
+        this.view.set('pedidos');
+      } else {
+        this.view.set('inicio');
+      }
+
+      await this.checkDailyAttendancePrompt();
     } catch (err) {
       this.loginError.set((err as Error).message);
     } finally {
@@ -476,9 +706,14 @@ export class AppComponent implements OnInit, OnDestroy {
 
   openRoleModal(r?: Role) {
     if (r) {
-      this.roleForm = { id: r.id, name: r.name, description: r.description };
+      this.roleForm = {
+        id: r.id,
+        name: r.name,
+        description: r.description,
+        permissions: [...(r.permissions || [])]
+      };
     } else {
-      this.roleForm = { id: 0, name: '', description: '' };
+      this.roleForm = { id: 0, name: '', description: '', permissions: [] };
     }
     this.error.set('');
     this.roleModal = true;
@@ -487,14 +722,23 @@ export class AppComponent implements OnInit, OnDestroy {
   async saveRoleSubmit() {
     try {
       if (!this.roleForm.name.trim()) throw new Error('Escribe el nombre del rol.');
+      const permissionsJson = JSON.stringify(this.roleForm.permissions || []);
       if (this.roleForm.id) {
-        await this.apiService.updateRole(this.roleForm.id, this.roleForm);
+        await this.apiService.updateRole(this.roleForm.id, {
+          name: this.roleForm.name,
+          description: this.roleForm.description,
+          permissionsJson
+        });
       } else {
-        await this.apiService.createRole({ ...this.roleForm, permissionsJson: '["*"]' });
+        await this.apiService.createRole({
+          name: this.roleForm.name,
+          description: this.roleForm.description,
+          permissionsJson
+        });
       }
       await this.store.refreshFromDatabase();
       this.roleModal = false;
-      this.notify('Rol guardado en base de datos.');
+      this.notify('Rol y permisos guardados con éxito en base de datos.');
     } catch (e) {
       this.error.set((e as Error).message);
     }
@@ -752,6 +996,10 @@ export class AppComponent implements OnInit, OnDestroy {
 
   // --- NAVEGACIÓN Y DETALLES DE PEDIDO ---
   go(view: View) {
+    if (!this.hasPermission(view)) {
+      this.notify('Acceso restringido: Tu rol actual no tiene permisos para acceder a este módulo.');
+      return;
+    }
     this.view.set(view);
     this.menuOpen = false;
     window.scrollTo({ top: 0, behavior: 'smooth' });

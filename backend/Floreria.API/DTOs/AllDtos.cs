@@ -13,7 +13,8 @@ public record UserDto(
     int RoleId,
     string RoleName,
     bool IsActive,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    List<string>? Permissions = null
 );
 
 public record CreateUserDto(
@@ -59,7 +60,8 @@ public record AttendanceDto(
     string? ClockIn,
     string? ClockOut,
     string Status,
-    string? Notes
+    string? Notes,
+    string? DeviceFingerprint = null
 );
 
 public record MarkAttendanceDto(
@@ -68,12 +70,14 @@ public record MarkAttendanceDto(
     string? ClockIn,
     string? ClockOut,
     string Status,
-    string? Notes
+    string? Notes,
+    string? DeviceFingerprint = null
 );
 
 public record ClockInOutDto(
     int UserId,
-    string? Notes
+    string? Notes,
+    string? DeviceFingerprint = null
 );
 
 public record AttendanceSummaryDto(

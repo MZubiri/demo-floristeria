@@ -37,5 +37,6 @@ public class Attendance
     public string? ClockOut { get; set; }            // HH:mm
     public string Status { get; set; } = "Presente"; // Presente, Retardo, Falta, Justificado, Permiso
     public string? Notes { get; set; }
+    public string? DeviceFingerprint { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

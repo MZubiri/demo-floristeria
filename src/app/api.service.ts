@@ -172,6 +172,12 @@ export class ApiService {
     });
   }
 
+  async softDeleteOrder(id: string): Promise<any> {
+    return this.request<any>(`/orders/${id}`, {
+      method: 'DELETE'
+    });
+  }
+
   // ==========================================
   // PRODUCTOS Y CATÁLOGO
   // ==========================================
@@ -246,6 +252,28 @@ export class ApiService {
     return this.request<Attendance[]>(`/attendance${qs}`);
   }
 
+  async getTodayAttendance(userId: number): Promise<Attendance | null> {
+    try {
+      return await this.request<Attendance>(`/attendance/today/${userId}`);
+    } catch {
+      return null;
+    }
+  }
+
+  async clockIn(data: { userId: number; notes?: string; deviceFingerprint?: string }): Promise<Attendance> {
+    return this.request<Attendance>('/attendance/clock-in', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async clockOut(data: { userId: number; notes?: string; deviceFingerprint?: string }): Promise<Attendance> {
+    return this.request<Attendance>('/attendance/clock-out', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  }
+
   async markAttendance(data: {
     userId: number;
     date: string;
@@ -253,6 +281,7 @@ export class ApiService {
     clockOut?: string;
     status: string;
     notes?: string;
+    deviceFingerprint?: string;
   }): Promise<Attendance> {
     return this.request<Attendance>('/attendance', {
       method: 'POST',
@@ -294,7 +323,20 @@ export class ApiService {
   }
 
   async getRoles(): Promise<Role[]> {
-    return this.request<Role[]>('/roles');
+    const raw = await this.request<any[]>('/roles');
+    return raw.map(r => {
+      let perms: string[] = [];
+      if (Array.isArray(r.permissions)) perms = r.permissions;
+      else if (r.permissionsJson) {
+        try { perms = JSON.parse(r.permissionsJson); } catch { perms = []; }
+      }
+      return {
+        id: r.id,
+        name: r.name,
+        description: r.description,
+        permissions: perms
+      };
+    });
   }
 
   async createRole(r: any): Promise<Role> {

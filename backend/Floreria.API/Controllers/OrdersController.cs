@@ -28,6 +28,7 @@ public class OrdersController : ControllerBase
         [FromQuery] bool? pendingOnly)
     {
         var q = _context.Orders
+            .Where(o => !o.IsDeleted)
             .Include(o => o.Items)
             .Include(o => o.Payments)
             .Include(o => o.History)
@@ -56,11 +57,11 @@ public class OrdersController : ControllerBase
         if (pendingOnly == true)
         {
             orders = orders.Where(o =>
-            {
-                var total = o.Items.Sum(i => i.Price * i.Quantity) - o.Discount + o.Shipping;
-                var paid = o.Payments.Sum(p => p.Amount);
-                return total > paid && o.Status != "cancelado";
-            }).ToList();
+                {
+                    var total = o.Items.Sum(i => i.Price * i.Quantity) - o.Discount + o.Shipping;
+                    var paid = o.Payments.Sum(p => p.Amount);
+                    return total > paid && o.Status != "cancelado";
+                }).ToList();
         }
 
         return Ok(orders.Select(MapToDto));
@@ -74,11 +75,23 @@ public class OrdersController : ControllerBase
             .Include(x => x.Items)
             .Include(x => x.Payments)
             .Include(x => x.History)
-            .FirstOrDefaultAsync(x => x.Id == intId || x.Number == id);
+            .FirstOrDefaultAsync(x => !x.IsDeleted && (x.Id == intId || x.Number == id));
 
         if (o == null) return NotFound(new { message = "Pedido no encontrado." });
 
         return Ok(MapToDto(o));
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<ActionResult> Delete(string id)
+    {
+        int.TryParse(id, out int intId);
+        var o = await _context.Orders.FirstOrDefaultAsync(x => x.Id == intId || x.Number == id);
+        if (o == null) return NotFound(new { message = "Pedido no encontrado." });
+
+        o.IsDeleted = true;
+        await _context.SaveChangesAsync();
+        return Ok(new { message = "Pedido eliminado lógicamente con éxito." });
     }
 
     [HttpPost]

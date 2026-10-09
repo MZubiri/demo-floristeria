@@ -75,6 +75,7 @@ public class Order
     public string? ReceivedBy { get; set; }
     public string? DeliveryNote { get; set; }
     public string? FinalArrangementPhotoUrl { get; set; }
+    public bool IsDeleted { get; set; } = false;
 
     public ICollection<OrderItem> Items { get; set; } = new List<OrderItem>();
     public ICollection<Payment> Payments { get; set; } = new List<Payment>();

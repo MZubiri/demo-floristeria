@@ -46,10 +46,18 @@ public class AuthController : ControllerBase
             user.RoleId,
             user.Role?.Name ?? "Colaborador",
             user.IsActive,
-            user.CreatedAt
+            user.CreatedAt,
+            ParsePermissions(user.Role?.PermissionsJson)
         );
 
         return Ok(new LoginResponse(token, userDto));
+    }
+
+    public static List<string> ParsePermissions(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return new List<string>();
+        try { return System.Text.Json.JsonSerializer.Deserialize<List<string>>(json) ?? new List<string>(); }
+        catch { return new List<string>(); }
     }
 
     [HttpGet("me")]
@@ -69,7 +77,8 @@ public class AuthController : ControllerBase
             user.RoleId,
             user.Role?.Name ?? "Colaborador",
             user.IsActive,
-            user.CreatedAt
+            user.CreatedAt,
+            ParsePermissions(user.Role?.PermissionsJson)
         ));
     }
 }
@@ -93,19 +102,21 @@ public class UsersController : ControllerBase
         var users = await _context.Users
             .Include(u => u.Role)
             .OrderBy(u => u.Name)
-            .Select(u => new UserDto(
-                u.Id,
-                u.Name,
-                u.Email,
-                u.Phone,
-                u.RoleId,
-                u.Role != null ? u.Role.Name : "Sin rol",
-                u.IsActive,
-                u.CreatedAt
-            ))
             .ToListAsync();
 
-        return Ok(users);
+        var result = users.Select(u => new UserDto(
+            u.Id,
+            u.Name,
+            u.Email,
+            u.Phone,
+            u.RoleId,
+            u.Role != null ? u.Role.Name : "Sin rol",
+            u.IsActive,
+            u.CreatedAt,
+            AuthController.ParsePermissions(u.Role?.PermissionsJson)
+        )).ToList();
+
+        return Ok(result);
     }
 
     [HttpGet("{id}")]
@@ -125,7 +136,8 @@ public class UsersController : ControllerBase
             u.RoleId,
             u.Role?.Name ?? "Sin rol",
             u.IsActive,
-            u.CreatedAt
+            u.CreatedAt,
+            AuthController.ParsePermissions(u.Role?.PermissionsJson)
         ));
     }
 

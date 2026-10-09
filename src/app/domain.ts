@@ -12,9 +12,9 @@ export interface Product { id:string; name:string; category:string; price:number
 export interface Line { id:string; productId:string; name:string; quantity:number; price:number; labor:number; recipe:Ingredient[]; notes:string }
 export interface Payment { id:string; amount:number; method:string; date:string; reference:string }
 export interface History { date:string; title:string; note:string }
-export interface User { id:number; name:string; email:string; phone:string; roleId:number; roleName:string; isActive:boolean; createdAt:string }
+export interface User { id:number; name:string; email:string; phone:string; roleId:number; roleName:string; isActive:boolean; createdAt:string; permissions?:string[] }
 export interface Role { id:number; name:string; description:string; permissions:string[] }
-export interface Attendance { id:number; userId:number; userName:string; userRole:string; date:string; clockIn?:string; clockOut?:string; status:string; notes?:string }
+export interface Attendance { id:number; userId:number; userName:string; userRole:string; date:string; clockIn?:string; clockOut?:string; status:string; notes?:string; deviceFingerprint?:string }
 
 export interface Order {
  id:string; number:string; createdAt:string; customer:string; phone:string; email:string;

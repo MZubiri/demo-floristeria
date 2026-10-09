@@ -111,7 +111,8 @@ public class AttendanceController : ControllerBase
                 a.ClockIn,
                 a.ClockOut,
                 a.Status,
-                a.Notes
+                a.Notes,
+                a.DeviceFingerprint
             ))
             .ToListAsync();
 
@@ -133,6 +134,31 @@ public class AttendanceController : ControllerBase
         return Ok(new AttendanceSummaryDto(totalActive, present, late, absent, justified));
     }
 
+    [HttpGet("today/{userId}")]
+    public async Task<ActionResult<AttendanceDto?>> GetTodayAttendance(int userId)
+    {
+        var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
+        var record = await _context.Attendances
+            .Include(a => a.User)
+                .ThenInclude(u => u!.Role)
+            .FirstOrDefaultAsync(a => a.UserId == userId && a.Date == today);
+
+        if (record == null) return Ok(null);
+
+        return Ok(new AttendanceDto(
+            record.Id,
+            record.UserId,
+            record.User?.Name ?? "",
+            record.User?.Role?.Name ?? "Colaborador",
+            record.Date,
+            record.ClockIn,
+            record.ClockOut,
+            record.Status,
+            record.Notes,
+            record.DeviceFingerprint
+        ));
+    }
+
     [HttpPost("mark")]
     public async Task<ActionResult<AttendanceDto>> MarkAttendance([FromBody] MarkAttendanceDto dto)
     {
@@ -151,7 +177,8 @@ public class AttendanceController : ControllerBase
                 ClockIn = dto.ClockIn ?? DateTime.Now.ToString("HH:mm"),
                 ClockOut = dto.ClockOut,
                 Status = dto.Status,
-                Notes = dto.Notes
+                Notes = dto.Notes,
+                DeviceFingerprint = dto.DeviceFingerprint
             };
             _context.Attendances.Add(record);
         }
@@ -161,6 +188,7 @@ public class AttendanceController : ControllerBase
             if (!string.IsNullOrWhiteSpace(dto.ClockIn)) record.ClockIn = dto.ClockIn;
             if (!string.IsNullOrWhiteSpace(dto.ClockOut)) record.ClockOut = dto.ClockOut;
             if (dto.Notes != null) record.Notes = dto.Notes;
+            if (!string.IsNullOrWhiteSpace(dto.DeviceFingerprint)) record.DeviceFingerprint = dto.DeviceFingerprint;
         }
 
         await _context.SaveChangesAsync();
@@ -174,7 +202,8 @@ public class AttendanceController : ControllerBase
             record.ClockIn,
             record.ClockOut,
             record.Status,
-            record.Notes
+            record.Notes,
+            record.DeviceFingerprint
         ));
     }
 
@@ -196,7 +225,8 @@ public class AttendanceController : ControllerBase
                 Date = today,
                 ClockIn = nowTime,
                 Status = "Presente",
-                Notes = dto.Notes ?? "Entrada registrada por el colaborador"
+                Notes = dto.Notes ?? "Entrada registrada por el colaborador",
+                DeviceFingerprint = dto.DeviceFingerprint
             };
             _context.Attendances.Add(record);
         }
@@ -204,6 +234,7 @@ public class AttendanceController : ControllerBase
         {
             record.ClockIn = nowTime;
             if (dto.Notes != null) record.Notes = dto.Notes;
+            if (!string.IsNullOrWhiteSpace(dto.DeviceFingerprint)) record.DeviceFingerprint = dto.DeviceFingerprint;
         }
 
         await _context.SaveChangesAsync();
@@ -217,7 +248,8 @@ public class AttendanceController : ControllerBase
             record.ClockIn,
             record.ClockOut,
             record.Status,
-            record.Notes
+            record.Notes,
+            record.DeviceFingerprint
         ));
     }
 
@@ -240,7 +272,8 @@ public class AttendanceController : ControllerBase
                 ClockIn = "08:00",
                 ClockOut = nowTime,
                 Status = "Presente",
-                Notes = dto.Notes ?? "Salida registrada"
+                Notes = dto.Notes ?? "Salida registrada",
+                DeviceFingerprint = dto.DeviceFingerprint
             };
             _context.Attendances.Add(record);
         }
@@ -248,6 +281,7 @@ public class AttendanceController : ControllerBase
         {
             record.ClockOut = nowTime;
             if (dto.Notes != null) record.Notes = dto.Notes;
+            if (!string.IsNullOrWhiteSpace(dto.DeviceFingerprint)) record.DeviceFingerprint = dto.DeviceFingerprint;
         }
 
         await _context.SaveChangesAsync();
@@ -261,7 +295,8 @@ public class AttendanceController : ControllerBase
             record.ClockIn,
             record.ClockOut,
             record.Status,
-            record.Notes
+            record.Notes,
+            record.DeviceFingerprint
         ));
     }
 }

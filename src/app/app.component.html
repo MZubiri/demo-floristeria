@@ -68,7 +68,7 @@
   <a class="brand" href="#inicio" (click)="go('inicio')"><img src="assets/mark.svg" alt="" width="43" height="43"><span>La Carreta<span class="brand-sub">FLORISTERÍA</span></span></a>
   <div class="workspace"><span class="workspace-avatar">LC</span><div><strong>{{state().business}}</strong><small>Base de datos activa</small></div><span class="live-dot"></span></div>
   <nav aria-label="Navegación principal">
-  @for(n of navItems;track n.id){@if(n.group){<p class="nav-caption">{{n.group}}</p>}<button type="button" [class.active]="view()===n.id" [attr.aria-current]="view()===n.id?'page':null" (click)="go(n.id)"><app-icon [name]="n.icon"/><span>{{n.label}}</span>@if(n.id==='pedidos'){<b>{{activeOrders().length}}</b>}</button>}
+  @for(n of filteredNavItems();track n.id){@if(n.group){<p class="nav-caption">{{n.group}}</p>}<button type="button" [class.active]="view()===n.id" [attr.aria-current]="view()===n.id?'page':null" (click)="go(n.id)"><app-icon [name]="n.icon"/><span>{{n.label}}</span>@if(n.id==='pedidos'){<b>{{activeOrders().length}}</b>}</button>}
   </nav>
   <div class="sidebar-bottom"><div class="demo-tag" style="color:#3e6335;"><span style="background:#52804b;"></span>MYSQL CONECTADO</div><p>Grandes detalles.<br>Todo bajo control.</p><small>Floristería La Carreta</small></div>
   </aside>
@@ -85,23 +85,29 @@
         <span class="live-dot" style="background:#2e4f28;"></span>
         <span>Sincronizado en vivo</span>
       </div>
-      <button class="button secondary small" (click)="openCashRegisterModal()" aria-label="Arqueo y Cierre diario de caja">
-        <app-icon name="wallet"/>
-        Arqueo de Caja
-      </button>
-      <button class="button primary small" style="background:#2e4f28;color:#fff;" (click)="openPos()" aria-label="Registrar venta directa en local">
-        <app-icon name="pos"/>
-        Venta Local
-      </button>
+      @if(isAdmin() || hasPermission('arqueo')){
+        <button class="button secondary small" (click)="openCashRegisterModal()" aria-label="Arqueo y Cierre diario de caja">
+          <app-icon name="wallet"/>
+          Arqueo de Caja
+        </button>
+      }
+      @if(isAdmin() || hasPermission('pos')){
+        <button class="button primary small" style="background:#2e4f28;color:#fff;" (click)="openPos()" aria-label="Registrar venta directa en local">
+          <app-icon name="pos"/>
+          Venta Local
+        </button>
+      }
       <span class="local-status" title="Conexión en tiempo real con base de datos MySQL"><span class="live-dot"></span>MySQL Activo</span>
-      <button class="icon-button" aria-label="Ver entregas de hoy" (click)="go('agenda');resetCalendar()"><app-icon name="calendar"/></button>
+      @if(hasPermission('agenda')){
+        <button class="icon-button" aria-label="Ver entregas de hoy" (click)="go('agenda');resetCalendar()"><app-icon name="calendar"/></button>
+      }
       <div class="user-pill" [title]="currentUser()?.email || 'Usuario conectado'">
         <div class="user-pill-avatar">{{userInitials}}</div>
         <div class="user-pill-info">
           <strong>{{currentUser()?.name || 'Usuario'}}</strong>
           <small>{{currentUser()?.roleName || 'Colaborador'}}</small>
         </div>
-        <button class="logout-btn" (click)="doLogout()" title="Cerrar Sesión"><app-icon name="close" style="width:14px;height:14px;"/></button>
+        <button class="logout-btn" (click)="onLogoutClick()" title="Cerrar Sesión"><app-icon name="close" style="width:14px;height:14px;"/></button>
       </div>
     </div>
   </header>
@@ -217,6 +223,12 @@
   <div><div class="eyebrow">EQUIPO HUMANO Y PERMISOS</div><h1>Usuarios y Roles</h1><p>Gestión completa de personal, accesos y cargos de la floristería.</p></div>
   <div class="button-row"><button class="button secondary" (click)="openRoleModal()"><app-icon name="plus"/>Nuevo rol</button><button class="button primary" (click)="openUserModal()"><app-icon name="plus"/>Nuevo colaborador</button></div>
  </section>
+ <div class="filter-tabs" style="margin-bottom:16px;">
+  <button [class.active]="userSubTab==='usuarios'" (click)="userSubTab='usuarios'">Equipo y Colaboradores <span>{{filteredUsers.length}}</span></button>
+  <button [class.active]="userSubTab==='permisos'" (click)="userSubTab='permisos'">Matriz de Permisos y Acciones por Rol <span>{{roles.length}}</span></button>
+ </div>
+
+ @if(userSubTab==='usuarios'){
  <div class="dashboard-top">
   <section class="panel">
    <div class="section-heading"><div><h2>Colaboradores</h2><p>{{filteredUsers.length}} usuarios registrados</p></div></div>
@@ -248,6 +260,57 @@
    </div>
   </section>
  </div>
+ }
+
+ @if(userSubTab==='permisos'){
+ <section class="panel">
+  <div class="section-heading">
+   <div>
+    <h2>Matriz de Permisos y Acciones del Sistema</h2>
+    <p>Visualiza y administra qué acciones tiene permitidas cada rol de la floristería.</p>
+   </div>
+  </div>
+
+  <div class="table-scroll">
+   <table>
+    <thead>
+     <tr>
+      <th style="min-width:260px;">Módulo / Acción</th>
+      <th style="min-width:140px;">Categoría</th>
+      @for(r of roles; track r.id){
+       <th style="text-align:center;min-width:120px;">
+        <div style="display:flex;flex-direction:column;align-items:center;">
+         <strong>{{r.name}}</strong>
+         <button class="text-button small" style="font-size:11px;padding:2px 4px;" (click)="openRoleModal(r)">Editar</button>
+        </div>
+       </th>
+      }
+     </tr>
+    </thead>
+    <tbody>
+     @for(act of systemActions; track act.id){
+      <tr>
+       <td>
+        <strong>{{act.name}}</strong>
+        <p style="font-size:11px;color:var(--muted);margin:2px 0 0 0;">{{act.desc}}</p>
+       </td>
+       <td><span class="badge neutral">{{act.group}}</span></td>
+       @for(r of roles; track r.id){
+        <td style="text-align:center;">
+         @if(isActionGranted(r, act.id)){
+          <span class="badge green" style="font-weight:600;">✓ Permitido</span>
+         } @else {
+          <span class="badge rose" style="opacity:0.75;">✕ Restringido</span>
+         }
+        </td>
+       }
+      </tr>
+     }
+    </tbody>
+   </table>
+  </div>
+ </section>
+ }
  }
 
  @if(view()==='pagos'){
@@ -294,7 +357,7 @@
  </main>
  </div>
  <nav class="mobile-nav" aria-label="Navegación móvil"><button [class.active]="view()==='inicio'" (click)="go('inicio')"><app-icon name="home"/><span>Inicio</span></button><button [class.active]="view()==='pedidos'" (click)="go('pedidos')"><app-icon name="orders"/><span>Pedidos</span></button><button [class.active]="view()==='agenda'" (click)="go('agenda')"><app-icon name="calendar"/><span>Agenda</span></button><button [class.active]="view()==='inventario'" (click)="go('inventario')"><app-icon name="stock"/><span>Stock</span></button><button [class.active]="menuOpen" (click)="menuOpen=!menuOpen" [attr.aria-expanded]="menuOpen"><app-icon name="menu"/><span>Más</span></button></nav>
- @if(menuOpen){<div class="mobile-more"><div class="section-heading"><h2>Tu floristería</h2><button class="icon-button" aria-label="Cerrar menú" (click)="menuOpen=false"><app-icon name="close"/></button></div>@for(n of navItems;track n.id){<button (click)="go(n.id)"><app-icon [name]="n.icon"/>{{n.label}}<app-icon name="chevron"/></button>}</div>}
+ @if(menuOpen){<div class="mobile-more"><div class="section-heading"><h2>Tu floristería</h2><button class="icon-button" aria-label="Cerrar menú" (click)="menuOpen=false"><app-icon name="close"/></button></div>@for(n of filteredNavItems();track n.id){<button (click)="go(n.id)"><app-icon [name]="n.icon"/>{{n.label}}<app-icon name="chevron"/></button>}</div>}
  @if(toast()){<div class="toast" role="status"><app-icon name="check"/>{{toast()}}</div>}
 </div>
 
@@ -325,7 +388,7 @@
  }
  @if(detailTab==='historial'){<h3>La historia de este pedido</h3><ol class="timeline">@for(h of o.history.slice().reverse();track $index){<li><span></span><div><strong>{{h.title}}</strong><small>{{dateTime(h.date)}}</small><p>{{h.note}}</p></div></li>}</ol>}
  </div>
- <footer class="modal-footer detail-footer"><div class="button-row"><button class="button secondary small" type="button" (click)="printWorkshopComanda(o)" title="Imprimir comanda térmica de taller (80mm)"><app-icon name="print"/>Comanda Taller (80mm)</button>@if(!['entregado','cancelado'].includes(o.status)){<button class="button secondary small" (click)="edit(o)"><app-icon name="edit"/>Editar</button><button class="text-button danger-text small" (click)="change(o,'cancelado')">Cancelar pedido</button>}@else{<span class="micro">Pedido cerrado · historial conservado</span>}</div>
+ <footer class="modal-footer detail-footer"><div class="button-row"><button class="button secondary small" type="button" (click)="printWorkshopComanda(o)" title="Imprimir comanda térmica de taller (80mm)"><app-icon name="print"/>Comanda Taller (80mm)</button>@if(!['entregado','cancelado'].includes(o.status)){<button class="button secondary small" (click)="edit(o)"><app-icon name="edit"/>Editar</button><button class="text-button danger-text small" (click)="change(o,'cancelado')">Cancelar pedido</button>}@else{<span class="micro">Pedido cerrado · historial conservado</span>}@if(isAdmin()){<button class="text-button danger-text small" type="button" (click)="softDeleteOrderClick(o)" title="Eliminar lógicamente este pedido del sistema"><app-icon name="trash"/>Eliminar pedido</button>}</div>
  @if(nextStatus(o);as next){<button class="button primary small" (click)="detailTab==='resumen'?change(o,next):detailTab='resumen'"><app-icon name="check"/>{{detailTab==='resumen'?label(next):'Volver al pedido'}}</button>}
  </footer>
  </app-dialog>
@@ -432,16 +495,33 @@
 }
 
 @if(roleModal){
- <app-dialog [title]="roleForm.id ? 'Editar Rol' : 'Nuevo Rol'" eyebrow="CARGOS Y PERMISOS" (dismiss)="roleModal=false;error.set('')">
+ <app-dialog [title]="roleForm.id ? 'Editar Rol y Permisos' : 'Nuevo Rol y Permisos'" eyebrow="CARGOS Y PERMISOS" [wide]="true" (dismiss)="roleModal=false;error.set('')">
   <form (ngSubmit)="saveRoleSubmit()">
    <div class="modal-scroll">
     @if(error()){<p class="error" role="alert">{{error()}}</p>}
     <label>Nombre del Rol *<input name="roleName" [(ngModel)]="roleForm.name" required placeholder="Ej. Diseñador Floral"></label>
-    <label>Descripción de responsabilidades<textarea name="roleDesc" [(ngModel)]="roleForm.description" rows="3" placeholder="Descripción de actividades y funciones del rol"></textarea></label>
+    <label>Descripción de responsabilidades<textarea name="roleDesc" [(ngModel)]="roleForm.description" rows="2" placeholder="Descripción de actividades y funciones del rol"></textarea></label>
+
+    <div style="margin-top:16px;border-top:1px solid rgba(0,0,0,0.08);padding-top:14px;">
+     <strong style="display:block;font-size:0.92rem;margin-bottom:6px;">Permisos y Acciones Asignadas</strong>
+     <p style="font-size:0.8rem;color:var(--muted);margin-bottom:12px;">Marca los módulos y capacidades permitidas para los colaboradores con este rol:</p>
+
+     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;">
+      @for(act of systemActions; track act.id){
+       <label style="display:flex;align-items:flex-start;gap:8px;padding:8px 10px;background:#fcfcf9;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer;margin:0;">
+        <input type="checkbox" [checked]="roleForm.permissions.includes('*') || roleForm.permissions.includes(act.id)" (change)="toggleRolePermission(act.id)" style="margin-top:3px;">
+        <div style="flex:1;">
+         <strong style="font-size:0.85rem;display:block;">{{act.name}}</strong>
+         <small style="font-size:0.75rem;color:var(--muted);display:block;line-height:1.2;">{{act.desc}}</small>
+        </div>
+       </label>
+      }
+     </div>
+    </div>
    </div>
    <footer class="modal-footer">
     <button class="button secondary" type="button" (click)="roleModal=false">Volver</button>
-    <button class="button primary" type="submit"><app-icon name="check"/>Guardar rol</button>
+    <button class="button primary" type="submit"><app-icon name="check"/>Guardar rol y permisos</button>
    </footer>
   </form>
  </app-dialog>
@@ -790,5 +870,90 @@
       <p style="margin:0 0 4px 0;">Firma Administración: ___________________</p>
     </div>
   </div>
+}
+
+<!-- MODAL DE PASE DE LISTA OBLIGATORIO (ENTRADA) CON HUELLA DEL EQUIPO -->
+@if(checkInModal){
+  <app-dialog title="Pase de Lista · Registro de Entrada" eyebrow="ASISTENCIA Y JORNADA LABORAL" [wide]="false" (dismiss)="checkInModal=false">
+    <div class="modal-scroll">
+      <div style="text-align:center;margin-bottom:16px;">
+        <div style="width:52px;height:52px;border-radius:50%;background:#e8f5e9;display:inline-flex;align-items:center;justify-content:center;color:#2e4f28;margin:0 auto 8px auto;">
+          <app-icon name="check" style="width:28px;height:28px;"/>
+        </div>
+        <h3 style="margin:0 0 4px 0;font-size:1.2rem;color:#1e293b;">¡Hola, {{currentUser()?.name}}!</h3>
+        <p style="margin:0;font-size:0.88rem;color:#64748b;">Aún no has registrado tu asistencia para la jornada de hoy (<strong>{{todayLabel}}</strong>).</p>
+      </div>
+
+      <!-- HUELLA DEL EQUIPO DETECTADA -->
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;font-weight:600;font-size:0.82rem;color:#334155;">
+          <app-icon name="info" style="width:16px;height:16px;color:#2e4f28;"/>
+          <span>Huella del Equipo Detectada</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:0.75rem;color:#64748b;">
+          <div><strong>Dispositivo ID:</strong> <code>{{deviceSummary().id}}</code></div>
+          <div><strong>Navegador:</strong> {{deviceSummary().browser}}</div>
+          <div><strong>Plataforma:</strong> {{deviceSummary().platform}}</div>
+          <div><strong>Pantalla:</strong> {{deviceSummary().screen}}</div>
+        </div>
+        <small style="display:block;margin-top:6px;font-size:0.7rem;color:#94a3b8;">La huella se guardará junto a tu asistencia para verificación y control laboral.</small>
+      </div>
+
+      <label>Observaciones de entrada (opcional)
+        <input [(ngModel)]="checkInNotes" placeholder="Ej. Inicio de turno presencial">
+      </label>
+    </div>
+    <footer class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="button secondary" type="button" (click)="checkInModal=false">Recordar más tarde</button>
+      <button class="button primary" type="button" style="background:#2e4f28;" (click)="confirmCheckIn()" [disabled]="checkingIn">
+        <app-icon name="check"/>
+        {{checkingIn ? 'Registrando...' : 'Registrar Entrada Ahora'}}
+      </button>
+    </footer>
+  </app-dialog>
+}
+
+<!-- MODAL DE CONFIRMACIÓN DE SALIDA (LOGOUT) CON HUELLA DEL EQUIPO -->
+@if(logoutModal){
+  <app-dialog title="¿Quiere registrar su salida?" eyebrow="CIERRE DE JORNADA LABORAL" [wide]="false" (dismiss)="logoutModal=false">
+    <div class="modal-scroll">
+      <div style="text-align:center;margin-bottom:16px;">
+        <div style="width:52px;height:52px;border-radius:50%;background:#fef3c7;display:inline-flex;align-items:center;justify-content:center;color:#b45309;margin:0 auto 8px auto;">
+          <app-icon name="clock" style="width:28px;height:28px;"/>
+        </div>
+        <h3 style="margin:0 0 4px 0;font-size:1.2rem;color:#1e293b;">Hola, {{currentUser()?.name}}</h3>
+        <p style="margin:0;font-size:0.88rem;color:#64748b;">Estás por cerrar sesión en el sistema. ¿Deseas marcar la finalización de tu jornada laboral antes de salir?</p>
+      </div>
+
+      <!-- HUELLA DEL EQUIPO DETECTADA -->
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;font-weight:600;font-size:0.82rem;color:#334155;">
+          <app-icon name="info" style="width:16px;height:16px;color:#b45309;"/>
+          <span>Huella del Equipo Detectada</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:0.75rem;color:#64748b;">
+          <div><strong>Dispositivo ID:</strong> <code>{{deviceSummary().id}}</code></div>
+          <div><strong>Navegador:</strong> {{deviceSummary().browser}}</div>
+          <div><strong>Plataforma:</strong> {{deviceSummary().platform}}</div>
+          <div><strong>Pantalla:</strong> {{deviceSummary().screen}}</div>
+        </div>
+        <small style="display:block;margin-top:6px;font-size:0.7rem;color:#94a3b8;">Se registrará la hora exacta de salida y la firma digital del equipo.</small>
+      </div>
+
+      <label>Notas de finalización de turno (opcional)
+        <input [(ngModel)]="logoutNotes" placeholder="Ej. Turno cerrado sin novedades">
+      </label>
+    </div>
+    <footer class="modal-footer" style="display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap;">
+      <button class="button secondary small" type="button" (click)="confirmLogoutOnly()">Solo Cerrar Sesión</button>
+      <div style="display:flex;gap:6px;">
+        <button class="text-button small" type="button" (click)="logoutModal=false">Cancelar</button>
+        <button class="button primary small" type="button" style="background:#2e4f28;" (click)="confirmLogoutWithClockOut()" [disabled]="clockingOut">
+          <app-icon name="check"/>
+          {{clockingOut ? 'Guardando salida...' : 'Registrar Salida y Salir'}}
+        </button>
+      </div>
+    </footer>
+  </app-dialog>
 }
 
