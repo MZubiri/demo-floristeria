@@ -36,7 +36,7 @@ builder.Services.AddCors(options =>
 
 // Database (MySQL with Pomelo)
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? "Server=localhost;Port=3306;Database=gestion_floreria;User=root;Password=root;";
+    ?? "Server=localhost;Port=3306;Database=gestion_floreria;User=root;Password=mysql;";
 
 builder.Services.AddDbContext<FloreriaDbContext>(options =>
 {
