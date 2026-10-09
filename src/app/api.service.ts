@@ -367,6 +367,58 @@ export class ApiService {
     this.triggerDownload(blob, filename.endsWith('.xls') || filename.endsWith('.xlsx') ? filename : filename + '.xls');
   }
 
+  // ==========================================
+  // FOTO REAL DE ARREGLO FINAL
+  // ==========================================
+  async setOrderFinalPhoto(orderId: string, photoUrl: string): Promise<Order> {
+    return this.request<Order>(`/orders/${orderId}/final-photo`, {
+      method: 'POST',
+      body: JSON.stringify({ photoUrl })
+    });
+  }
+
+  // ==========================================
+  // ARQUEO Y CIERRE DE CAJA (POS)
+  // ==========================================
+  async getCashRegisterSummary(date?: string): Promise<any> {
+    const q = date ? `?date=${encodeURIComponent(date)}` : '';
+    return this.request<any>(`/cash-register/summary${q}`);
+  }
+
+  async closeCashRegister(payload: { date: string; openingBalance: number; actualCash: number; cashierName: string; notes?: string }): Promise<any> {
+    return this.request<any>('/cash-register/close', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+  }
+
+  async getCashRegisterHistory(): Promise<any[]> {
+    return this.request<any[]>('/cash-register/history');
+  }
+
+  // ==========================================
+  // COPIAS DE SEGURIDAD MYSQL
+  // ==========================================
+  async getBackups(): Promise<any[]> {
+    return this.request<any[]>('/backup/list');
+  }
+
+  async createBackupNow(): Promise<any> {
+    return this.request<any>('/backup/now', {
+      method: 'POST'
+    });
+  }
+
+  downloadBackupFile(fileName: string) {
+    const url = `${this.baseUrl}/backup/download/${encodeURIComponent(fileName)}`;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
   private triggerDownload(blob: Blob, name: string) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

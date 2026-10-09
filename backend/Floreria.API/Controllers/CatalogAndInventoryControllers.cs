@@ -35,6 +35,7 @@ public class ProductsController : ControllerBase
                 p.Labor,
                 p.Image,
                 p.Description,
+                p.Sku,
                 Recipe = p.Recipe.Select(r => new
                 {
                     r.MaterialId,
@@ -67,6 +68,7 @@ public class ProductsController : ControllerBase
             p.Image,
             p.Description,
             p.IsActive,
+            p.Sku,
             Recipe = p.Recipe.Select(r => new
             {
                 r.MaterialId,
@@ -76,7 +78,7 @@ public class ProductsController : ControllerBase
         });
     }
 
-    public record SaveProductDto(string? Id, string Name, string Category, decimal Price, decimal Labor, string? Image, string? Description, bool IsActive, List<IngredientDto>? Recipe);
+    public record SaveProductDto(string? Id, string Name, string Category, decimal Price, decimal Labor, string? Image, string? Description, bool IsActive, List<IngredientDto>? Recipe, string? Sku = null);
 
     [HttpPost]
     public async Task<ActionResult<object>> Create([FromBody] SaveProductDto dto)
@@ -91,7 +93,8 @@ public class ProductsController : ControllerBase
             Labor = dto.Labor,
             Image = dto.Image ?? "assets/rosas.svg",
             Description = dto.Description ?? "",
-            IsActive = dto.IsActive
+            IsActive = dto.IsActive,
+            Sku = !string.IsNullOrWhiteSpace(dto.Sku) ? dto.Sku : $"LC-{dto.Category.ToUpper()[..Math.Min(3, dto.Category.Length)]}-001"
         };
 
         if (dto.Recipe != null)
@@ -135,6 +138,7 @@ public class ProductsController : ControllerBase
         if (!string.IsNullOrWhiteSpace(dto.Image)) prod.Image = dto.Image;
         prod.Description = dto.Description ?? "";
         prod.IsActive = dto.IsActive;
+        if (!string.IsNullOrWhiteSpace(dto.Sku)) prod.Sku = dto.Sku;
 
         if (dto.Recipe != null)
         {
@@ -180,10 +184,12 @@ public class ProductsController : ControllerBase
 public class InventoryController : ControllerBase
 {
     private readonly FloreriaDbContext _context;
+    private readonly Services.IWebSyncService _webSyncService;
 
-    public InventoryController(FloreriaDbContext context)
+    public InventoryController(FloreriaDbContext context, Services.IWebSyncService webSyncService)
     {
         _context = context;
+        _webSyncService = webSyncService;
     }
 
     [HttpGet("materials")]
@@ -300,6 +306,16 @@ public class InventoryController : ControllerBase
 
         _context.StockMovements.Add(movement);
         await _context.SaveChangesAsync();
+
+        // Verificar y sincronizar automáticamente disponibilidad de arreglos por stock
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _webSyncService.CheckAndSyncStockAvailabilityAsync();
+            }
+            catch { }
+        });
 
         return Ok(new { message = "Movimiento registrado con éxito." });
     }

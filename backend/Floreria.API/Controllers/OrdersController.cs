@@ -278,12 +278,13 @@ public class OrdersController : ControllerBase
         _context.Orders.Add(order);
         await _context.SaveChangesAsync();
 
-        // Notificar y sincronizar venta directa hacia la tienda web
+        // Notificar y sincronizar venta directa hacia la tienda web y revisar insumos
         _ = Task.Run(async () =>
         {
             try
             {
                 await _webSyncService.PushOrderToWebAsync(order);
+                await _webSyncService.CheckAndSyncStockAvailabilityAsync();
             }
             catch { }
         });
@@ -413,12 +414,54 @@ public class OrdersController : ControllerBase
 
         await _context.SaveChangesAsync();
 
-        // Notificar nuevo estado del pedido a la tienda web
+        // Notificar nuevo estado del pedido a la tienda web y revisar insumos
         _ = Task.Run(async () =>
         {
             try
             {
                 await _webSyncService.PushOrderStatusAsync(order.Number, target);
+                if (target == "preparacion")
+                {
+                    await _webSyncService.CheckAndSyncStockAvailabilityAsync();
+                }
+            }
+            catch { }
+        });
+
+        return Ok(MapToDto(order));
+    }
+
+    public record SetFinalPhotoRequest(string PhotoUrl);
+
+    [HttpPost("{id}/final-photo")]
+    public async Task<ActionResult<OrderDto>> SetFinalPhoto(string id, [FromBody] SetFinalPhotoRequest req)
+    {
+        var order = await _context.Orders
+            .Include(o => o.Items)
+            .Include(o => o.Payments)
+            .Include(o => o.History)
+            .FirstOrDefaultAsync(o => o.Id == id);
+
+        if (order == null) return NotFound(new { message = "Pedido no encontrado." });
+        if (string.IsNullOrWhiteSpace(req.PhotoUrl)) return BadRequest(new { message = "La URL de la foto es requerida." });
+
+        order.FinalArrangementPhotoUrl = req.PhotoUrl.Trim();
+        order.History.Add(new OrderHistory
+        {
+            OrderId = order.Id,
+            Date = DateTime.UtcNow.ToString("o"),
+            Title = "Fotografía de arreglo final agregada",
+            Note = "Foto real del arreglo tomada en taller y publicada en el rastreo en vivo"
+        });
+
+        await _context.SaveChangesAsync();
+
+        // Push final photo to Web Shop order
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _webSyncService.PushOrderFinalPhotoAsync(order.Number, order.FinalArrangementPhotoUrl);
             }
             catch { }
         });
@@ -464,6 +507,7 @@ public class OrdersController : ControllerBase
             o.DeliveredAt,
             o.ReceivedBy,
             o.DeliveryNote,
+            o.FinalArrangementPhotoUrl,
             total,
             paid,
             balance,

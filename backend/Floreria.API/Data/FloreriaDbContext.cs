@@ -22,6 +22,7 @@ public class FloreriaDbContext : DbContext
 
     public DbSet<StockMovement> StockMovements => Set<StockMovement>();
     public DbSet<Expense> Expenses => Set<Expense>();
+    public DbSet<CashRegisterClosure> CashRegisterClosures => Set<CashRegisterClosure>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -89,6 +90,7 @@ public class FloreriaDbContext : DbContext
             entity.Property(e => e.Labor).HasPrecision(18, 2);
             entity.Property(e => e.Image).HasMaxLength(255);
             entity.Property(e => e.Description).HasMaxLength(500);
+            entity.Property(e => e.Sku).HasMaxLength(50);
         });
 
         modelBuilder.Entity<ProductRecipe>(entity =>
@@ -131,6 +133,7 @@ public class FloreriaDbContext : DbContext
             entity.Property(e => e.Discount).HasPrecision(18, 2);
             entity.Property(e => e.Shipping).HasPrecision(18, 2);
             entity.Property(e => e.Status).HasMaxLength(30);
+            entity.Property(e => e.FinalArrangementPhotoUrl).HasMaxLength(500);
         });
 
         modelBuilder.Entity<OrderItem>(entity =>
@@ -204,6 +207,23 @@ public class FloreriaDbContext : DbContext
             entity.Property(e => e.Amount).HasPrecision(18, 2);
             entity.Property(e => e.Date).HasMaxLength(10);
             entity.Property(e => e.Method).HasMaxLength(50);
+        });
+
+        modelBuilder.Entity<CashRegisterClosure>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasMaxLength(64);
+            entity.Property(e => e.Date).HasMaxLength(10).IsRequired();
+            entity.Property(e => e.ClosedAt).HasMaxLength(40).IsRequired();
+            entity.Property(e => e.CashierName).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.OpeningBalance).HasPrecision(18, 2);
+            entity.Property(e => e.CashSales).HasPrecision(18, 2);
+            entity.Property(e => e.ElectronicSales).HasPrecision(18, 2);
+            entity.Property(e => e.TotalSales).HasPrecision(18, 2);
+            entity.Property(e => e.TotalExpenses).HasPrecision(18, 2);
+            entity.Property(e => e.ExpectedCash).HasPrecision(18, 2);
+            entity.Property(e => e.ActualCash).HasPrecision(18, 2);
+            entity.Property(e => e.Difference).HasPrecision(18, 2);
         });
     }
 }

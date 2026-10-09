@@ -56,6 +56,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IExcelExportService, ExcelExportService>();
 builder.Services.AddHttpClient<IWebSyncService, WebSyncService>();
 builder.Services.AddHostedService<WebSyncBackgroundService>();
+builder.Services.AddHostedService<DatabaseBackupBackgroundService>();
 
 // JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "GestionFloreria_SecretKey_987654321_ABCXYZ_ProductionReady";

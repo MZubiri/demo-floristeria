@@ -25,3 +25,5 @@ mysql_data/
 *.sqlite
 # Local scratch
 scratch/
+backend/Floreria.API/Backups/*.sql
+*.sql

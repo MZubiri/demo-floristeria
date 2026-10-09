@@ -8,6 +8,7 @@ import { AppStore } from './store';
 import { ApiService, SyncStatus } from './api.service';
 import {
   type Order, type OrderStatus, type Product, type Material, type User, type Role, type Attendance,
+  type CashRegisterSummary, type CashRegisterClosure, type BackupInfo,
   STATUSES, METHODS, total, paid, balance, orderCost, paymentLabel, nextStatus,
   reserved, available, dayKey, offsetDay, blankOrder, newLine, saveOrder, addPayment,
   transition, moveStock, summary, csvCell, uid, directSale, markAttendance, saveUser,
@@ -163,6 +164,7 @@ export class AppComponent implements OnInit, OnDestroy {
   productForm = {
     id: '',
     name: '',
+    sku: '',
     category: 'Ramos',
     price: 150000,
     labor: 15000,
@@ -175,10 +177,39 @@ export class AppComponent implements OnInit, OnDestroy {
   uploadingProductImage = signal(false);
   private autoSyncInterval: any = null;
 
+  // ==========================================
+  // COMANDAS TÉRMICAS 80MM / 58MM PARA TALLER
+  // ==========================================
+  printComandaOrder: Order | null = null;
+  printClosureData: CashRegisterClosure | null = null;
+
+  // ==========================================
+  // ARQUEO Y CIERRE DE CAJA (POS)
+  // ==========================================
+  cashRegisterModal = false;
+  cashRegisterTab: 'cierre' | 'historial' = 'cierre';
+  cashRegisterSummary: CashRegisterSummary | null = null;
+  cashRegisterActualCash = 0;
+  cashRegisterNotes = '';
+  cashRegisterClosures: CashRegisterClosure[] = [];
+  closingCashRegister = false;
+
+  get cashDifference(): number {
+    return (this.cashRegisterActualCash || 0) - (this.cashRegisterSummary?.expectedCash || 0);
+  }
+
+  // ==========================================
+  // COPIAS DE SEGURIDAD MYSQL
+  // ==========================================
+  backups: BackupInfo[] = [];
+  loadingBackups = false;
+  creatingBackup = false;
+
   ngOnInit() {
     if (this.isLoggedIn()) {
       this.store.refreshFromDatabase();
       this.checkWebSyncStatus();
+      this.loadBackups();
     }
     this.startAutoSync();
   }
@@ -473,6 +504,7 @@ export class AppComponent implements OnInit, OnDestroy {
       this.productForm = {
         id: p.id,
         name: p.name,
+        sku: p.sku || '',
         category: p.category || 'Ramos',
         price: p.price,
         labor: p.labor || 0,
@@ -484,6 +516,7 @@ export class AppComponent implements OnInit, OnDestroy {
       this.productForm = {
         id: '',
         name: '',
+        sku: 'LC-RAM-' + String(this.state().products.length + 1).padStart(3, '0'),
         category: 'Ramos',
         price: 150000,
         labor: 15000,
@@ -1090,5 +1123,114 @@ export class AppComponent implements OnInit, OnDestroy {
 
   search(text: string, term: string) {
     return (text || '').toLowerCase().includes((term || '').toLowerCase().trim());
+  }
+
+  // ==========================================
+  // COMANDAS TÉRMICAS 80MM / 58MM PARA TALLER
+  // ==========================================
+  printWorkshopComanda(o: Order) {
+    this.printComandaOrder = o;
+    document.body.classList.add('printing-comanda');
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => {
+        document.body.classList.remove('printing-comanda');
+        this.printComandaOrder = null;
+      }, 500);
+    }, 100);
+  }
+
+  // ==========================================
+  // ARQUEO Y CIERRE DE CAJA
+  // ==========================================
+  async openCashRegisterModal() {
+    this.cashRegisterModal = true;
+    this.cashRegisterTab = 'cierre';
+    this.error.set('');
+    try {
+      this.cashRegisterSummary = await this.apiService.getCashRegisterSummary(this.today);
+      this.cashRegisterActualCash = this.cashRegisterSummary?.expectedCash || 0;
+      this.cashRegisterClosures = await this.apiService.getCashRegisterHistory();
+    } catch (e) {
+      this.error.set('No se pudo cargar el resumen de caja: ' + (e as Error).message);
+    }
+  }
+
+  async submitCashRegisterClosure() {
+    if (!this.cashRegisterSummary) return;
+    this.closingCashRegister = true;
+    this.error.set('');
+    try {
+      const payload = {
+        date: this.today,
+        openingBalance: this.cashRegisterSummary.openingBalance || 0,
+        actualCash: Number(this.cashRegisterActualCash) || 0,
+        cashierName: this.currentUser()?.name || 'Cajero Principal',
+        notes: this.cashRegisterNotes
+      };
+      const created = await this.apiService.closeCashRegister(payload);
+      this.notify('¡Cierre de caja guardado con éxito!');
+      this.cashRegisterClosures = await this.apiService.getCashRegisterHistory();
+      this.cashRegisterTab = 'historial';
+      if (confirm('¿Deseas imprimir el comprobante térmico del cierre de caja?')) {
+        this.printClosureTicket(created);
+      }
+    } catch (e) {
+      this.error.set((e as Error).message);
+    } finally {
+      this.closingCashRegister = false;
+    }
+  }
+
+  printClosureTicket(c?: CashRegisterClosure) {
+    if (!c) return;
+    this.printClosureData = c;
+    document.body.classList.add('printing-closure');
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => {
+        document.body.classList.remove('printing-closure');
+        this.printClosureData = null;
+      }, 500);
+    }, 100);
+  }
+
+  // ==========================================
+  // COPIAS DE SEGURIDAD MYSQL
+  // ==========================================
+  async loadBackups() {
+    this.loadingBackups = true;
+    try {
+      this.backups = await this.apiService.getBackups();
+    } catch (e) {
+      console.warn('No se pudieron listar los respaldos:', e);
+    } finally {
+      this.loadingBackups = false;
+    }
+  }
+
+  async createBackup() {
+    this.creatingBackup = true;
+    try {
+      const res = await this.apiService.createBackupNow();
+      this.notify(`Copia de seguridad generada: ${res.fileName}`);
+      await this.loadBackups();
+    } catch (e) {
+      this.notify('Error al generar la copia de seguridad: ' + (e as Error).message);
+    } finally {
+      this.creatingBackup = false;
+    }
+  }
+
+  downloadBackup(fileName: string) {
+    this.apiService.downloadBackupFile(fileName);
+  }
+
+  formatFileSize(bytes: number): string {
+    if (!bytes || bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   }
 }

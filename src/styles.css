@@ -39,3 +39,45 @@
 .user-pill-info small{font-size:9px;color:#677769}
 .logout-btn{border:0;background:transparent;cursor:pointer;color:#8a4440;display:flex;align-items:center;padding:4px;border-radius:6px}
 .logout-btn:hover{background:#fbeae8}
+
+/* ========================================================= */
+/* IMPRESIÓN TÉRMICA DE COMANDAS DE TALLER Y TICKETS (80MM / 58MM) */
+/* ========================================================= */
+.thermal-comanda-container,
+.thermal-closure-container {
+  display: none;
+}
+
+@media print {
+  body.printing-comanda,
+  body.printing-closure {
+    background: #fff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  body.printing-comanda .app-shell,
+  body.printing-comanda app-dialog,
+  body.printing-comanda .modal-box,
+  body.printing-closure .app-shell,
+  body.printing-closure app-dialog,
+  body.printing-closure .modal-box {
+    display: none !important;
+  }
+  body.printing-comanda .thermal-comanda-container,
+  body.printing-closure .thermal-closure-container {
+    display: block !important;
+    width: 74mm !important;
+    max-width: 74mm !important;
+    margin: 0 auto !important;
+    padding: 2mm !important;
+    color: #000 !important;
+    background: #fff !important;
+    font-family: 'Courier New', Courier, monospace, sans-serif !important;
+    font-size: 11px !important;
+    line-height: 1.35 !important;
+  }
+  @page {
+    size: 80mm auto;
+    margin: 2mm;
+  }
+}

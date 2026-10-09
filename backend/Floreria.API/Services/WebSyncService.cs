@@ -78,6 +78,7 @@ public class WebSyncService : IWebSyncService
         {
             int productsCount = await SyncProductsAsync();
             int ordersCount = await SyncOrdersAsync();
+            await CheckAndSyncStockAvailabilityAsync();
             _lastSyncTime = DateTime.UtcNow;
 
             return new SyncResultDto(
@@ -150,7 +151,8 @@ public class WebSyncService : IWebSyncService
                     Labor = Math.Round(wp.Price * 0.12m),
                     Image = wp.Image.StartsWith("http") ? wp.Image : $"{BaseUrl}{wp.Image}",
                     Description = wp.DescriptionEs ?? "",
-                    IsActive = wp.IsActive
+                    IsActive = wp.IsActive,
+                    Sku = !string.IsNullOrWhiteSpace(wp.Sku) ? wp.Sku : $"LC-{MapCategory(wp.Category)[..Math.Min(3, MapCategory(wp.Category).Length)].ToUpper()}-{wp.Id:D3}"
                 };
 
                 // Asignar receta base estimada para que descuente inventario en el ERP
@@ -190,6 +192,10 @@ public class WebSyncService : IWebSyncService
                 }
                 existing.Description = wp.DescriptionEs ?? existing.Description;
                 existing.IsActive = wp.IsActive;
+                if (string.IsNullOrWhiteSpace(existing.Sku))
+                {
+                    existing.Sku = !string.IsNullOrWhiteSpace(wp.Sku) ? wp.Sku : $"LC-{existing.Category[..Math.Min(3, existing.Category.Length)].ToUpper()}-{wp.Id:D3}";
+                }
                 synced++;
             }
         }
@@ -379,6 +385,7 @@ public class WebSyncService : IWebSyncService
                     image = string.IsNullOrWhiteSpace(product.Image) ? "assets/rosas.svg" : product.Image,
                     featured = false,
                     isActive = product.IsActive,
+                    sku = !string.IsNullOrWhiteSpace(product.Sku) ? product.Sku : $"LC-{product.Category.ToUpper()[..Math.Min(3, product.Category.Length)]}-{product.Id.Replace("web_", "").PadLeft(3, '0')}",
                     occasionEs = "[\"Amor\",\"Aniversario\"]",
                     occasionEn = "[\"Love\",\"Anniversary\"]"
                 };
@@ -412,6 +419,7 @@ public class WebSyncService : IWebSyncService
                     image = string.IsNullOrWhiteSpace(product.Image) ? "assets/rosas.svg" : product.Image,
                     featured = false,
                     isActive = product.IsActive,
+                    sku = !string.IsNullOrWhiteSpace(product.Sku) ? product.Sku : $"LC-{product.Category.ToUpper()[..Math.Min(3, product.Category.Length)]}-001",
                     occasionEs = "[\"Amor\",\"Aniversario\"]",
                     occasionEn = "[\"Love\",\"Anniversary\"]"
                 };
@@ -508,6 +516,50 @@ public class WebSyncService : IWebSyncService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "No se pudo actualizar el estado del pedido {OrderCode} en la tienda web", orderCode);
+            return false;
+        }
+    }
+
+    public async Task<bool> PushOrderFinalPhotoAsync(string orderCode, string photoUrl)
+    {
+        try
+        {
+            var token = await GetWebAuthTokenAsync();
+            if (string.IsNullOrEmpty(token)) return false;
+
+            var payload = new { finalArrangementPhotoUrl = photoUrl };
+            var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+
+            using var searchReq = new HttpRequestMessage(HttpMethod.Get, $"{BaseUrl}/api/orders?search={orderCode}");
+            searchReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            var searchRes = await _httpClient.SendAsync(searchReq);
+
+            if (searchRes.IsSuccessStatusCode)
+            {
+                var searchJson = await searchRes.Content.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(searchJson);
+                if (doc.RootElement.ValueKind == JsonValueKind.Array && doc.RootElement.GetArrayLength() > 0)
+                {
+                    var webId = doc.RootElement[0].GetProperty("id").GetInt32();
+                    using var updateReq = new HttpRequestMessage(HttpMethod.Put, $"{BaseUrl}/api/orders/{webId}/status")
+                    {
+                        Content = content
+                    };
+                    updateReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                    var putRes = await _httpClient.SendAsync(updateReq);
+                    if (putRes.IsSuccessStatusCode)
+                    {
+                        _logger.LogInformation("Foto final del arreglo para pedido {OrderCode} publicada con éxito en la tienda web.", orderCode);
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "No se pudo sincronizar la foto final del pedido {OrderCode} con la tienda web", orderCode);
             return false;
         }
     }
@@ -640,6 +692,74 @@ public class WebSyncService : IWebSyncService
         return null;
     }
 
+    public async Task<int> CheckAndSyncStockAvailabilityAsync()
+    {
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<FloreriaDbContext>();
+
+            var products = await context.Products
+                .Include(p => p.Recipe)
+                .ToListAsync();
+
+            var materials = await context.Materials.ToListAsync();
+            var matMap = materials.ToDictionary(m => m.Id, m => m.Stock);
+
+            int changesCount = 0;
+
+            foreach (var p in products)
+            {
+                if (p.Recipe == null || !p.Recipe.Any()) continue;
+
+                // Verificar si todos los insumos requeridos tienen stock suficiente para armar al menos 1 unidad
+                bool hasSufficientStock = true;
+                string missingMaterialName = "";
+
+                foreach (var r in p.Recipe)
+                {
+                    decimal currentStock = matMap.TryGetValue(r.MaterialId, out var s) ? s : 0;
+                    if (currentStock < r.Quantity || currentStock <= 0)
+                    {
+                        hasSufficientStock = false;
+                        var mat = materials.FirstOrDefault(m => m.Id == r.MaterialId);
+                        missingMaterialName = mat?.Name ?? r.MaterialId;
+                        break;
+                    }
+                }
+
+                if (!hasSufficientStock && p.IsActive)
+                {
+                    // Desactivación automática por falta de insumos
+                    p.IsActive = false;
+                    changesCount++;
+                    _logger.LogInformation("Arreglo {Name} ({Id}) desactivado automáticamente por agotamiento de insumo: {Insumo}", p.Name, p.Id, missingMaterialName);
+                    await PushProductToWebAsync(p);
+                }
+                else if (hasSufficientStock && !p.IsActive)
+                {
+                    // Reactivación automática tras reposición de inventario
+                    p.IsActive = true;
+                    changesCount++;
+                    _logger.LogInformation("Arreglo {Name} ({Id}) reactivado automáticamente al contar con insumos suficientes.", p.Name, p.Id);
+                    await PushProductToWebAsync(p);
+                }
+            }
+
+            if (changesCount > 0)
+            {
+                await context.SaveChangesAsync();
+            }
+
+            return changesCount;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al verificar y sincronizar disponibilidad de arreglos por insumos");
+            return 0;
+        }
+    }
+
     public async Task<SyncStatusDto> GetStatusAsync()
     {
         bool isConnected = false;
@@ -741,6 +861,7 @@ public class WebSyncService : IWebSyncService
         public string Category { get; set; } = string.Empty;
         public string Image { get; set; } = string.Empty;
         public bool IsActive { get; set; } = true;
+        public string? Sku { get; set; }
     }
 
     private class WebOrderResponse

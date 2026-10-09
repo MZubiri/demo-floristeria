@@ -41,4 +41,24 @@ public class SyncController : ControllerBase
         var status = await _syncService.GetStatusAsync();
         return Ok(status);
     }
+
+    /// <summary>
+    /// Endpoint de Webhook para recibir notificaciones en tiempo real desde la Tienda Web
+    /// Se invoca inmediatamente cuando se crea un pedido o cambia un estado en la tienda web.
+    /// </summary>
+    [HttpPost("webhook")]
+    public async Task<ActionResult<object>> HandleWebShopWebhook([FromBody] object? payload)
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _syncService.SyncOrdersAsync();
+                await _syncService.CheckAndSyncStockAvailabilityAsync();
+            }
+            catch { }
+        });
+
+        return Ok(new { success = true, message = "Webhook recibido y procesado en tiempo real." });
+    }
 }

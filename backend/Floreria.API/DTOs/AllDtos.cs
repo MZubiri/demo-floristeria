@@ -142,6 +142,7 @@ public record OrderDto(
     string? DeliveredAt,
     string? ReceivedBy,
     string? DeliveryNote,
+    string? FinalArrangementPhotoUrl,
     decimal Total,
     decimal Paid,
     decimal Balance,
@@ -227,4 +228,48 @@ public record FinancialSummaryDto(
     decimal Profit,
     decimal Collected,
     int CompletedSales
+);
+
+public record CashRegisterSummaryDto(
+    string Date,
+    decimal OpeningBalance,
+    decimal CashSales,
+    decimal ElectronicSales,
+    decimal TotalSales,
+    decimal CashExpenses,
+    decimal ExpectedCash,
+    int OrderCount
+);
+
+public record CloseCashRegisterRequest(
+    string Date,
+    decimal OpeningBalance,
+    decimal ActualCash,
+    string CashierName,
+    string? Notes
+);
+
+public record CashRegisterClosureDto(
+    string Id,
+    string Date,
+    string ClosedAt,
+    string CashierName,
+    decimal OpeningBalance,
+    decimal CashSales,
+    decimal ElectronicSales,
+    decimal TotalSales,
+    decimal TotalExpenses,
+    decimal ExpectedCash,
+    decimal ActualCash,
+    decimal Difference,
+    int OrderCount,
+    string? Notes
+);
+
+public record BackupInfoDto(
+    string FileName,
+    long FileSizeBytes,
+    string FormattedSize,
+    DateTime CreatedAt,
+    string DownloadUrl
 );

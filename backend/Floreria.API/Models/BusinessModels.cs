@@ -22,6 +22,7 @@ public class Product
     public string Image { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public bool IsActive { get; set; } = true;
+    public string? Sku { get; set; }
 
     public ICollection<ProductRecipe> Recipe { get; set; } = new List<ProductRecipe>();
 }
@@ -64,6 +65,7 @@ public class Order
     public string? DeliveredAt { get; set; }
     public string? ReceivedBy { get; set; }
     public string? DeliveryNote { get; set; }
+    public string? FinalArrangementPhotoUrl { get; set; }
 
     public ICollection<OrderItem> Items { get; set; } = new List<OrderItem>();
     public ICollection<Payment> Payments { get; set; } = new List<Payment>();
@@ -126,4 +128,22 @@ public class Expense
     public decimal Amount { get; set; }
     public string Date { get; set; } = string.Empty; // YYYY-MM-DD
     public string Method { get; set; } = "Efectivo";
+}
+
+public class CashRegisterClosure
+{
+    public string Id { get; set; } = string.Empty;
+    public string Date { get; set; } = string.Empty; // YYYY-MM-DD
+    public string ClosedAt { get; set; } = DateTime.UtcNow.ToString("o");
+    public string CashierName { get; set; } = string.Empty;
+    public decimal OpeningBalance { get; set; }
+    public decimal CashSales { get; set; }
+    public decimal ElectronicSales { get; set; }
+    public decimal TotalSales { get; set; }
+    public decimal TotalExpenses { get; set; }
+    public decimal ExpectedCash { get; set; }
+    public decimal ActualCash { get; set; }
+    public decimal Difference { get; set; }
+    public int OrderCount { get; set; }
+    public string? Notes { get; set; }
 }

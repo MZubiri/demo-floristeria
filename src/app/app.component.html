@@ -85,6 +85,10 @@
         <span class="live-dot" style="background:#2e4f28;"></span>
         <span>Sincronizado en vivo</span>
       </div>
+      <button class="button secondary small" (click)="openCashRegisterModal()" aria-label="Arqueo y Cierre diario de caja">
+        <app-icon name="wallet"/>
+        Arqueo de Caja
+      </button>
       <button class="button primary small" style="background:#2e4f28;color:#fff;" (click)="openPos()" aria-label="Registrar venta directa en local">
         <app-icon name="pos"/>
         Venta Local
@@ -154,7 +158,7 @@
  @if(view()==='catalogo'){
  <section class="page-heading"><div><div class="eyebrow">CREACIONES QUE HABLAN POR TI</div><h1>Catálogo floral</h1><p>Arreglos, materiales y recetas en perfecta armonía · Sincronizado en tiempo real con la tienda web.</p></div><div class="button-row"><button class="button secondary" (click)="openProductModal()"><app-icon name="plus"/>Nuevo producto</button><button class="button primary" (click)="newOrder()"><app-icon name="plus"/>Pedido personalizado</button></div></section>
  <div class="toolbar standalone-toolbar"><label class="search-field"><app-icon name="search"/><input [(ngModel)]="catalogQuery" placeholder="Encontrar un arreglo…" aria-label="Buscar en catálogo"></label><select [(ngModel)]="catalogCategory" aria-label="Categoría de producto"><option value="">Todas las categorías</option><option>Ramos</option><option>Premium</option><option>Detalles</option><option>Condolencias</option><option>Plantas</option></select></div>
- <section class="product-grid">@for(p of filteredProducts;track p.id){<article class="product-card"><div class="product-art"><img [src]="p.image" [alt]="'Fotografía de '+p.name" loading="lazy"><span class="badge paper">{{p.category}}</span><span class="illustration-label">CATÁLOGO LA CARRETA</span></div><div class="product-body"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;"><h2>{{p.name}}</h2><button class="text-button small" style="white-space:nowrap;color:var(--primary,#2e4f28);" (click)="openProductModal(p)" [attr.aria-label]="'Editar '+p.name"><app-icon name="edit"/>Editar</button></div><p>{{p.description}}</p><div class="product-pricing"><strong>{{money(p.price)}}</strong><small>Costo estimado {{money(productCost(p))}}</small></div><details><summary>Ver receta · {{p.recipe.length}} materiales</summary><ul class="recipe-summary">@for(r of p.recipe;track r.materialId){<li><span>{{materialName(r.materialId)}}</span><b>{{r.quantity}}</b></li>}</ul></details><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;"><button class="button secondary" (click)="openProductModal(p)"><app-icon name="edit"/>Editar</button><button class="button primary" (click)="newOrder(p)"><app-icon name="plus"/>Crear pedido</button></div></div></article>}@empty{<div class="empty"><h3>No hay arreglos con ese filtro</h3><p>Prueba otra búsqueda.</p></div>}</section>
+  <section class="product-grid">@for(p of filteredProducts;track p.id){<article class="product-card"><div class="product-art"><img [src]="p.image" [alt]="'Fotografía de '+p.name" loading="lazy"><span class="badge paper">{{p.category}}</span>@if(p.sku){<span class="badge neutral" style="font-family:monospace;letter-spacing:0.5px;position:absolute;top:16px;right:16px;">{{p.sku}}</span>}@if(p.isActive===false){<span class="badge rose" style="position:absolute;bottom:16px;right:16px;">Sin insumos</span>}<span class="illustration-label">CATÁLOGO LA CARRETA</span></div><div class="product-body"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;"><h2>{{p.name}}</h2><button class="text-button small" style="white-space:nowrap;color:var(--primary,#2e4f28);" (click)="openProductModal(p)" [attr.aria-label]="'Editar '+p.name"><app-icon name="edit"/>Editar</button></div><p>{{p.description}}</p><div class="product-pricing"><strong>{{money(p.price)}}</strong><small>Costo estimado {{money(productCost(p))}}</small>@if(p.isActive===false){<small style="color:#b3261e;font-weight:600;display:block;margin-top:2px;">⚠️ Desactivado por falta de insumos</small>}</div><details><summary>Ver receta · {{p.recipe.length}} materiales</summary><ul class="recipe-summary">@for(r of p.recipe;track r.materialId){<li><span>{{materialName(r.materialId)}}</span><b>{{r.quantity}}</b></li>}</ul></details><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;"><button class="button secondary" (click)="openProductModal(p)"><app-icon name="edit"/>Editar</button><button class="button primary" (click)="newOrder(p)"><app-icon name="plus"/>Crear pedido</button></div></div></article>}@empty{<div class="empty"><h3>No hay arreglos con ese filtro</h3><p>Prueba otra búsqueda.</p></div>}</section>
  }
 
  @if(view()==='inventario'){
@@ -282,6 +286,7 @@
  <section class="page-heading"><div><div class="eyebrow">SISTEMA INTEGRAL</div><h1>Configuración y Conexiones</h1><p>Parámetros del negocio, servidor y sincronización en la nube.</p></div></section>
  <div class="settings-grid"><section class="panel"><div class="section-heading"><div><h2>Floristería La Carreta</h2><p>Parámetros generales de la empresa.</p></div><app-icon name="flower"/></div><label>Nombre del negocio<input #business [value]="state().business" maxlength="80"></label><button class="button primary" (click)="saveBusiness(business.value)">Guardar nombre</button><dl class="settings-list"><div><dt>Moneda</dt><dd>Peso colombiano · COP</dd></div><div><dt>Usuario actual</dt><dd>{{currentUser()?.name || 'Administrador'}} ({{currentUser()?.roleName || 'Admin'}})</dd></div><div><dt>Base de datos</dt><dd>MySQL 8.0 (gestion_floreria)</dd></div><div><dt>Backend</dt><dd>ASP.NET Core 9.0 REST API</dd></div></dl></section>
  <section class="panel"><div class="section-heading"><div><h2>Sincronización Tienda Web</h2><p>Conexión directa en tiempo real con la tienda virtual.</p></div><app-icon name="stock"/></div><div style="background:rgba(46,79,40,0.08);border:1px solid rgba(46,79,40,0.25);border-radius:8px;padding:12px;margin-bottom:14px;color:#2e4f28;font-size:0.88rem;display:flex;align-items:center;gap:10px;"><span class="live-dot" style="background:#2e4f28;"></span><span><strong>Sincronización Continua Activa:</strong> Todos los pedidos entrantes y los arreglos florales se actualizan automáticamente en tiempo real entre la tienda web (<strong>floreria.molinazdev.lat</strong>) y este panel ERP sin necesidad de acciones manuales.</span></div><button class="button secondary full" (click)="exportData()"><app-icon name="download"/>Exportar respaldo local JSON</button></section>
+ <section class="panel"><div class="section-heading"><div><h2>Copias de Seguridad (MySQL)</h2><p>Respaldos automáticos diarios y descargas directas en .sql.</p></div><app-icon name="download"/></div><div style="background:rgba(46,79,40,0.08);border:1px solid rgba(46,79,40,0.25);border-radius:8px;padding:12px;margin-bottom:14px;color:#2e4f28;font-size:0.88rem;"><p style="margin:0 0 4px 0;"><strong>Respaldo Automático Diario:</strong> Se genera un volcado íntegro programado todas las madrugadas en segundo plano.</p><small style="color:#555;">Servidor MySQL · Base de datos: <code>gestion_floreria</code></small></div><div class="button-row" style="margin-bottom:14px;"><button class="button primary small" type="button" (click)="createBackup()" [disabled]="creatingBackup"><app-icon name="check"/>{{creatingBackup ? 'Generando copia...' : 'Generar Respaldo Ahora'}}</button><button class="button secondary small" type="button" (click)="loadBackups()" [disabled]="loadingBackups"><app-icon name="refresh"/>Actualizar lista</button></div><div class="table-scroll" style="max-height:200px;"><table><thead><tr><th>Archivo .sql</th><th>Tamaño</th><th>Acción</th></tr></thead><tbody>@for(b of backups; track b.fileName){<tr><td><code>{{b.fileName}}</code><small>{{dateTime(b.createdAt)}}</small></td><td>{{formatFileSize(b.fileSizeBytes)}}</td><td><button class="button secondary small" type="button" (click)="downloadBackup(b.fileName)"><app-icon name="download"/>Descargar</button></td></tr>}@empty{<tr><td colspan="3" style="text-align:center;padding:16px;color:#888;">No hay respaldos registrados. Haz clic en "Generar Respaldo Ahora".</td></tr>}</tbody></table></div></section>
  <section class="panel"><h2>Acceso Móvil / Web App</h2><ol class="instruction-list"><li>Abre la aplicación web desde cualquier navegador móvil (Safari o Chrome).</li><li>Para acceso directo como app, usa Compartir → Añadir a pantalla de inicio.</li><li>Puedes registrar ventas de mostrador, tomar fotografías y marcar asistencia desde el teléfono.</li></ol></section>
  <section class="panel production-note"><span class="eyebrow">ARQUITECTURA DE PRODUCCIÓN</span><h2>Floristería La Carreta</h2><p>Sistema empresarial conectado con base de datos relacional MySQL y sincronización de comercio electrónico.</p><dl class="settings-list"><div><dt>Tienda Web</dt><dd>https://floreria.molinazdev.lat</dd></div><div><dt>API Local</dt><dd>http://localhost:5000/api</dd></div><div><dt>Frontend</dt><dd>Angular 19 Standalone</dd></div></dl></section></div>
  }
@@ -320,7 +325,7 @@
  }
  @if(detailTab==='historial'){<h3>La historia de este pedido</h3><ol class="timeline">@for(h of o.history.slice().reverse();track $index){<li><span></span><div><strong>{{h.title}}</strong><small>{{dateTime(h.date)}}</small><p>{{h.note}}</p></div></li>}</ol>}
  </div>
- <footer class="modal-footer detail-footer"><div class="button-row">@if(!['entregado','cancelado'].includes(o.status)){<button class="button secondary small" (click)="edit(o)"><app-icon name="edit"/>Editar</button><button class="text-button danger-text small" (click)="change(o,'cancelado')">Cancelar pedido</button>}@else{<span class="micro">Pedido cerrado · historial conservado</span>}</div>
+ <footer class="modal-footer detail-footer"><div class="button-row"><button class="button secondary small" type="button" (click)="printWorkshopComanda(o)" title="Imprimir comanda térmica de taller (80mm)"><app-icon name="print"/>Comanda Taller (80mm)</button>@if(!['entregado','cancelado'].includes(o.status)){<button class="button secondary small" (click)="edit(o)"><app-icon name="edit"/>Editar</button><button class="text-button danger-text small" (click)="change(o,'cancelado')">Cancelar pedido</button>}@else{<span class="micro">Pedido cerrado · historial conservado</span>}</div>
  @if(nextStatus(o);as next){<button class="button primary small" (click)="detailTab==='resumen'?change(o,next):detailTab='resumen'"><app-icon name="check"/>{{detailTab==='resumen'?label(next):'Volver al pedido'}}</button>}
  </footer>
  </app-dialog>
@@ -455,6 +460,9 @@
      <input name="prodName" [(ngModel)]="productForm.name" required placeholder="Ej. Ramo Romance 24 Rosas">
     </label>
     <div class="form-grid">
+     <label>SKU / Código Único
+      <input name="prodSku" [(ngModel)]="productForm.sku" placeholder="Ej. LC-RAM-001" style="font-family:monospace;letter-spacing:0.5px;">
+     </label>
      <label>Categoría
       <select name="prodCategory" [(ngModel)]="productForm.category">
        <option value="Ramos">Ramos</option>
@@ -464,13 +472,15 @@
        <option value="Plantas">Plantas</option>
       </select>
      </label>
+    </div>
+    <div class="form-grid">
      <label>Precio de Venta COP *
       <input name="prodPrice" type="number" min="0" step="1000" [(ngModel)]="productForm.price" required>
      </label>
+     <label>Mano de obra estimada COP
+      <input name="prodLabor" type="number" min="0" step="500" [(ngModel)]="productForm.labor">
+     </label>
     </div>
-    <label>Mano de obra estimada COP
-     <input name="prodLabor" type="number" min="0" step="500" [(ngModel)]="productForm.labor">
-    </label>
 
     <!-- SUBIDA DIRECTA DE FOTOGRAFÍA -->
     <div style="margin-top:12px;margin-bottom:12px;">
@@ -570,5 +580,200 @@
   </form>
  </app-dialog>
 }
+
+@if(cashRegisterModal){
+  <app-dialog title="Arqueo y Cierre Diario de Caja" [wide]="true" eyebrow="PUNTO DE VENTA Y CONTROL FINANCIERO" (dismiss)="cashRegisterModal=false;error.set('')">
+    <div class="modal-scroll">
+      @if(error()){<p class="error" role="alert">{{error()}}</p>}
+      <div class="filter-tabs" style="margin-bottom:16px;">
+        <button [class.active]="cashRegisterTab==='cierre'" (click)="cashRegisterTab='cierre'">Cierre del Día</button>
+        <button [class.active]="cashRegisterTab==='historial'" (click)="cashRegisterTab='historial'">Historial de Arqueos</button>
+      </div>
+
+      @if(cashRegisterTab==='cierre'){
+        @if(cashRegisterSummary){
+          <div class="metrics three-metrics" style="margin-bottom:18px;">
+            <article class="metric">
+              <span>Ventas en Efectivo</span>
+              <strong>{{money(cashRegisterSummary.cashSales)}}</strong>
+              <small>{{cashRegisterSummary.orderCount}} pedidos registrados</small>
+            </article>
+            <article class="metric">
+              <span>Transferencias / Tarjetas</span>
+              <strong>{{money(cashRegisterSummary.electronicSales)}}</strong>
+              <small>Nequi, Bancolombia, Tarjeta</small>
+            </article>
+            <article class="metric featured">
+              <span>Efectivo Esperado en Caja</span>
+              <strong>{{money(cashRegisterSummary.expectedCash)}}</strong>
+              <small>Fondo inicial + Ventas efec. − Gastos efec.</small>
+            </article>
+          </div>
+
+          <div style="background:#f8faf6;border:1px solid #dce4d4;border-radius:12px;padding:16px;margin-bottom:20px;">
+            <h3 style="margin-bottom:12px;">Conteo Físico de Efectivo</h3>
+            <div class="form-grid">
+              <label>
+                Efectivo Contado en Gaveta (COP) *
+                <input type="number" min="0" step="1000" [(ngModel)]="cashRegisterActualCash" style="font-size:18px;font-weight:600;">
+              </label>
+              <div>
+                <label>Diferencia de Arqueo</label>
+                <div [style.color]="cashDifference >= 0 ? '#2e4f28' : '#b3261e'" style="font-size:18px;font-weight:700;margin-top:8px;">
+                  {{cashDifference >= 0 ? '+' : ''}}{{money(cashDifference)}}
+                  <span style="font-size:12px;font-weight:normal;">({{cashDifference === 0 ? 'Cuadrado exacto' : (cashDifference > 0 ? 'Sobrante en caja' : 'Faltante en caja')}})</span>
+                </div>
+              </div>
+            </div>
+            <label style="margin-top:10px;">
+              Notas u Observaciones del Cierre
+              <textarea [(ngModel)]="cashRegisterNotes" rows="2" placeholder="Ej. Billetes en buen estado, entregado a administración"></textarea>
+            </label>
+          </div>
+        }
+      } @else {
+        <!-- HISTORIAL DE ARQUEOS -->
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha / Hora</th>
+                <th>Cajero / Responsable</th>
+                <th>Ventas Totales</th>
+                <th>Efectivo Esperado</th>
+                <th>Efectivo Físico</th>
+                <th>Diferencia</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for(c of cashRegisterClosures; track c.id){
+                <tr>
+                  <td><strong>{{dateTime(c.closedAt)}}</strong></td>
+                  <td>{{c.cashierName}}</td>
+                  <td>{{money(c.totalSales)}}</td>
+                  <td>{{money(c.expectedCash)}}</td>
+                  <td>{{money(c.actualCash)}}</td>
+                  <td>
+                    <span class="badge" [class]="c.difference === 0 ? 'sage' : (c.difference > 0 ? 'blue' : 'rose')">
+                      {{c.difference >= 0 ? '+' : ''}}{{money(c.difference)}}
+                    </span>
+                  </td>
+                  <td>
+                    <button class="button secondary small" (click)="printClosureTicket(c)"><app-icon name="print"/>Ticket</button>
+                  </td>
+                </tr>
+              } @empty {
+                <tr><td colspan="7" style="text-align:center;padding:24px;color:#888;">No hay registros de arqueos anteriores.</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+    <footer class="modal-footer">
+      <button class="button secondary" type="button" (click)="cashRegisterModal=false">Cerrar</button>
+      @if(cashRegisterTab==='cierre'){
+        <button class="button primary" type="button" (click)="submitCashRegisterClosure()" [disabled]="closingCashRegister">
+          <app-icon name="check"/>
+          <span>{{closingCashRegister ? 'Guardando Cierre...' : 'Registrar y Cerrar Caja'}}</span>
+        </button>
+      }
+    </footer>
+  </app-dialog>
+}
+}
+
+<!-- IMPRESIÓN TÉRMICA DE COMANDA DE TALLER (80MM / 58MM) -->
+@if(printComandaOrder; as pco){
+  <div class="thermal-comanda-container">
+    <div style="text-align:center;border-bottom:1px dashed #000;padding-bottom:6px;margin-bottom:6px;">
+      <h2 style="font-size:16px;margin:0;font-weight:bold;">FLORISTERÍA LA CARRETA</h2>
+      <p style="font-size:11px;margin:2px 0;">COMANDA DE TALLER</p>
+      <p style="font-size:14px;font-weight:bold;margin:4px 0;">PEDIDO #{{pco.number}}</p>
+    </div>
+    <div style="font-size:11px;line-height:1.4;margin-bottom:6px;">
+      <div><strong>Fecha entrega:</strong> {{pco.deliveryDate}}</div>
+      <div><strong>Hora entrega:</strong> {{pco.time}}</div>
+      <div><strong>Prioridad:</strong> {{pco.priority || 'Normal'}}</div>
+      <div><strong>Tipo:</strong> {{pco.isDirectSale ? 'Venta Mostrador' : pco.deliveryMethod}}</div>
+    </div>
+    <div style="border-top:1px dashed #000;border-bottom:1px dashed #000;padding:6px 0;margin:6px 0;font-size:11px;">
+      <div><strong>Destinatario:</strong> {{pco.recipient}}</div>
+      <div><strong>Teléfono:</strong> {{pco.recipientPhone || pco.phone}}</div>
+      <div><strong>Dirección / Lugar:</strong> {{pco.address || 'Recogida en taller'}}</div>
+    </div>
+    <div style="margin-bottom:6px;">
+      <div style="font-weight:bold;font-size:12px;margin-bottom:4px;text-align:center;">--- ARREGLOS A ELABORAR ---</div>
+      @for(item of pco.items; track item.id){
+        <div style="margin-bottom:6px;border-bottom:1px dotted #ccc;padding-bottom:4px;">
+          <div style="font-weight:bold;font-size:12px;">[{{item.quantity}}x] {{item.name}}</div>
+          @if(item.notes){<div style="font-size:10px;font-style:italic;">Nota: {{item.notes}}</div>}
+          @if(item.recipe && item.recipe.length){
+            <div style="font-size:10px;margin-top:2px;">
+              <strong>Checklist de Insumos:</strong>
+              @for(ing of item.recipe; track ing.materialId){
+                <div>[ ] {{(ing.quantity * item.quantity)}}x {{materialName(ing.materialId)}}</div>
+              }
+            </div>
+          }
+        </div>
+      }
+    </div>
+    @if(pco.hasCard && pco.cardMessage){
+      <div style="border:1px solid #000;padding:6px;margin:8px 0;font-size:11px;">
+        <div style="font-weight:bold;font-size:11px;text-align:center;margin-bottom:3px;">💌 MENSAJE PARA TARJETA</div>
+        <div style="font-style:italic;text-align:center;">"{{pco.cardMessage}}"</div>
+      </div>
+    }
+    @if(pco.notes){
+      <div style="font-size:10px;margin-bottom:6px;">
+        <strong>Observaciones especiales:</strong> {{pco.notes}}
+      </div>
+    }
+    <div style="border-top:1px dashed #000;padding-top:8px;margin-top:8px;font-size:10px;text-align:center;">
+      <p style="margin:2px 0;">[ ] Tomar y subir foto real del arreglo terminado</p>
+      <p style="margin:8px 0 2px 0;">Firma Florista: _____________________</p>
+      <p style="margin:4px 0 0 0;font-size:9px;">Floristería La Carreta · Sistema Taller</p>
+    </div>
+  </div>
+}
+
+<!-- IMPRESIÓN TÉRMICA DE TICKET DE CIERRE DE CAJA -->
+@if(printClosureData; as pcd){
+  <div class="thermal-closure-container">
+    <div style="text-align:center;border-bottom:1px dashed #000;padding-bottom:6px;margin-bottom:6px;">
+      <h2 style="font-size:16px;margin:0;font-weight:bold;">FLORISTERÍA LA CARRETA</h2>
+      <p style="font-size:12px;margin:2px 0;">COMPROBANTE DE ARQUEO Y CIERRE</p>
+      <p style="font-size:10px;margin:0;">{{dateTime(pcd.closedAt)}}</p>
+    </div>
+    <div style="font-size:11px;line-height:1.4;margin-bottom:6px;">
+      <div><strong>Responsable:</strong> {{pcd.cashierName}}</div>
+      <div><strong>Fecha Arqueo:</strong> {{pcd.date}}</div>
+      <div><strong>Pedidos cerrados:</strong> {{pcd.orderCount}}</div>
+    </div>
+    <div style="border-top:1px dashed #000;border-bottom:1px dashed #000;padding:6px 0;margin:6px 0;font-size:11px;">
+      <div style="display:flex;justify-content:space-between;"><span>Ventas Efectivo:</span><strong>{{money(pcd.cashSales)}}</strong></div>
+      <div style="display:flex;justify-content:space-between;"><span>Transferencias/Tarjetas:</span><strong>{{money(pcd.electronicSales)}}</strong></div>
+      <div style="display:flex;justify-content:space-between;border-top:1px dotted #ccc;padding-top:3px;margin-top:3px;"><span>TOTAL VENTAS:</span><strong>{{money(pcd.totalSales)}}</strong></div>
+    </div>
+    <div style="font-size:11px;line-height:1.4;margin-bottom:6px;">
+      <div style="display:flex;justify-content:space-between;"><span>Efectivo Esperado:</span><strong>{{money(pcd.expectedCash)}}</strong></div>
+      <div style="display:flex;justify-content:space-between;"><span>Efectivo Contado:</span><strong>{{money(pcd.actualCash)}}</strong></div>
+      <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:12px;border-top:1px solid #000;padding-top:3px;margin-top:3px;">
+        <span>Diferencia:</span>
+        <span>{{pcd.difference >= 0 ? '+' : ''}}{{money(pcd.difference)}}</span>
+      </div>
+    </div>
+    @if(pcd.notes){
+      <div style="font-size:10px;margin:6px 0;border-top:1px dotted #ccc;padding-top:4px;">
+        <strong>Observaciones:</strong> {{pcd.notes}}
+      </div>
+    }
+    <div style="border-top:1px dashed #000;padding-top:12px;margin-top:12px;font-size:10px;text-align:center;">
+      <p style="margin:0 0 16px 0;">Firma Cajero(a): ___________________</p>
+      <p style="margin:0 0 4px 0;">Firma Administración: ___________________</p>
+    </div>
+  </div>
 }
 

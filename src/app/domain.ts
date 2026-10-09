@@ -8,7 +8,7 @@ export const STATUSES: { value: OrderStatus; label: string; color: string }[] = 
 export const METHODS = ['Efectivo','Nequi','Bancolombia','Transferencia','Tarjeta'];
 export interface Material { id:string; name:string; category:string; unit:string; stock:number; minimum:number; cost:number; supplier:string }
 export interface Ingredient { materialId:string; quantity:number; unitCost:number }
-export interface Product { id:string; name:string; category:string; price:number; labor:number; image:string; description:string; recipe:Ingredient[] }
+export interface Product { id:string; name:string; category:string; price:number; labor:number; image:string; description:string; recipe:Ingredient[]; sku?:string; isActive?:boolean }
 export interface Line { id:string; productId:string; name:string; quantity:number; price:number; labor:number; recipe:Ingredient[]; notes:string }
 export interface Payment { id:string; amount:number; method:string; date:string; reference:string }
 export interface History { date:string; title:string; note:string }
@@ -22,9 +22,46 @@ export interface Order {
  deliveryMethod:string; priority:string; items:Line[]; discount:number; shipping:number;
  hasCard:boolean; cardMessage:string; notes:string; status:OrderStatus; payments:Payment[];
  history:History[]; consumed:boolean; isDirectSale?:boolean; deliveredAt?:string; receivedBy?:string; deliveryNote?:string;
+ finalArrangementPhotoUrl?:string;
 }
 export interface Movement { id:string; materialId:string; type:'entrada'|'consumo'|'merma'; quantity:number; cost:number; date:string; reason:string; orderId?:string }
 export interface Expense { id:string; category:string; description:string; amount:number; date:string; method:string }
+
+export interface CashRegisterSummary {
+ date: string;
+ openingBalance: number;
+ cashSales: number;
+ electronicSales: number;
+ totalSales: number;
+ cashExpenses: number;
+ expectedCash: number;
+ orderCount: number;
+}
+
+export interface CashRegisterClosure {
+ id: string;
+ date: string;
+ closedAt: string;
+ cashierName: string;
+ openingBalance: number;
+ cashSales: number;
+ electronicSales: number;
+ totalSales: number;
+ totalExpenses: number;
+ expectedCash: number;
+ actualCash: number;
+ difference: number;
+ orderCount: number;
+ notes?: string;
+}
+
+export interface BackupInfo {
+ fileName: string;
+ fileSizeBytes: number;
+ formattedSize: string;
+ createdAt: string;
+ downloadUrl: string;
+}
 export interface State {
  version:1; orders:Order[]; materials:Material[]; products:Product[]; movements:Movement[]; expenses:Expense[]; business:string;
  users?:User[]; roles?:Role[]; attendances?:Attendance[];
