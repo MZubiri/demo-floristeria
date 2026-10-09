@@ -8,7 +8,7 @@ services:
     container_name: floreria-backend
     restart: unless-stopped
     environment:
-      ConnectionStrings__DefaultConnection: "Server=db-unl29eotgeh0en5doienwffm-060146524663;Port=3306;Database=floreria_lacarreta_db;User=root;Password=FloreriaRootPass2026!;AllowPublicKeyRetrieval=True;SslMode=None;TreatTinyAsBoolean=true;AllowUserVariables=true;CharSet=utf8mb4;"
+      ConnectionStrings__DefaultConnection: "Server=floreria-mysql;Port=3306;Database=floreria_lacarreta_db;User=root;Password=FloreriaRootPass2026!;AllowPublicKeyRetrieval=True;SslMode=None;TreatTinyAsBoolean=true;AllowUserVariables=true;CharSet=utf8mb4;"
       ASPNETCORE_ENVIRONMENT: "Production"
       ASPNETCORE_URLS: "http://+:5000"
     expose:
@@ -30,6 +30,7 @@ services:
     labels:
       - coolify.managed=true
       - "coolify.fqdn=https://gestionfloreria.molinazdev.lat"
+      - "traefik.http.services.flore-frontend.loadbalancer.server.port=80"
     networks:
       - default
       - coolify

@@ -119,7 +119,7 @@ public class UsersController : ControllerBase
         return Ok(result);
     }
 
-    [HttpGet("{id}")]
+    [HttpGet("{id:int}")]
     public async Task<ActionResult<UserDto>> GetById(int id)
     {
         var u = await _context.Users
