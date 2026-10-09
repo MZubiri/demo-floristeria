@@ -148,9 +148,9 @@
  }
 
  @if(view()==='catalogo'){
- <section class="page-heading"><div><div class="eyebrow">CREACIONES QUE HABLAN POR TI</div><h1>Catálogo floral</h1><p>Arreglos, materiales y costos en perfecta armonía.</p></div><button class="button primary" (click)="newOrder()"><app-icon name="plus"/>Pedido personalizado</button></section>
- <div class="toolbar standalone-toolbar"><label class="search-field"><app-icon name="search"/><input [(ngModel)]="catalogQuery" placeholder="Encontrar un arreglo…" aria-label="Buscar en catálogo"></label><select [(ngModel)]="catalogCategory" aria-label="Categoría de producto"><option value="">Todas las categorías</option><option>Ramos</option><option>Premium</option><option>Detalles</option></select></div>
- <section class="product-grid">@for(p of filteredProducts;track p.id){<article class="product-card"><div class="product-art"><img [src]="p.image" [alt]="'Fotografía de '+p.name" loading="lazy"><span class="badge paper">{{p.category}}</span><span class="illustration-label">CATÁLOGO LA CARRETA</span></div><div class="product-body"><h2>{{p.name}}</h2><p>{{p.description}}</p><div class="product-pricing"><strong>{{money(p.price)}}</strong><small>Costo estimado {{money(productCost(p))}}</small></div><details><summary>Ver receta · {{p.recipe.length}} materiales</summary><ul class="recipe-summary">@for(r of p.recipe;track r.materialId){<li><span>{{materialName(r.materialId)}}</span><b>{{r.quantity}}</b></li>}</ul></details><button class="button secondary full" (click)="newOrder(p)"><app-icon name="plus"/>Crear pedido con este arreglo</button></div></article>}@empty{<div class="empty"><h3>No hay arreglos con ese filtro</h3><p>Prueba otra búsqueda.</p></div>}</section>
+ <section class="page-heading"><div><div class="eyebrow">CREACIONES QUE HABLAN POR TI</div><h1>Catálogo floral</h1><p>Arreglos, materiales y recetas en perfecta armonía · Sincronizado en tiempo real con la tienda web.</p></div><div class="button-row"><button class="button secondary" (click)="openProductModal()"><app-icon name="plus"/>Nuevo producto</button><button class="button primary" (click)="newOrder()"><app-icon name="plus"/>Pedido personalizado</button></div></section>
+ <div class="toolbar standalone-toolbar"><label class="search-field"><app-icon name="search"/><input [(ngModel)]="catalogQuery" placeholder="Encontrar un arreglo…" aria-label="Buscar en catálogo"></label><select [(ngModel)]="catalogCategory" aria-label="Categoría de producto"><option value="">Todas las categorías</option><option>Ramos</option><option>Premium</option><option>Detalles</option><option>Condolencias</option><option>Plantas</option></select></div>
+ <section class="product-grid">@for(p of filteredProducts;track p.id){<article class="product-card"><div class="product-art"><img [src]="p.image" [alt]="'Fotografía de '+p.name" loading="lazy"><span class="badge paper">{{p.category}}</span><span class="illustration-label">CATÁLOGO LA CARRETA</span></div><div class="product-body"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;"><h2>{{p.name}}</h2><button class="text-button small" style="white-space:nowrap;color:var(--primary,#2e4f28);" (click)="openProductModal(p)" [attr.aria-label]="'Editar '+p.name"><app-icon name="edit"/>Editar</button></div><p>{{p.description}}</p><div class="product-pricing"><strong>{{money(p.price)}}</strong><small>Costo estimado {{money(productCost(p))}}</small></div><details><summary>Ver receta · {{p.recipe.length}} materiales</summary><ul class="recipe-summary">@for(r of p.recipe;track r.materialId){<li><span>{{materialName(r.materialId)}}</span><b>{{r.quantity}}</b></li>}</ul></details><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;"><button class="button secondary" (click)="openProductModal(p)"><app-icon name="edit"/>Editar</button><button class="button primary" (click)="newOrder(p)"><app-icon name="plus"/>Crear pedido</button></div></div></article>}@empty{<div class="empty"><h3>No hay arreglos con ese filtro</h3><p>Prueba otra búsqueda.</p></div>}</section>
  }
 
  @if(view()==='inventario'){
@@ -433,6 +433,106 @@
    <footer class="modal-footer">
     <button class="button secondary" type="button" (click)="roleModal=false">Volver</button>
     <button class="button primary" type="submit"><app-icon name="check"/>Guardar rol</button>
+   </footer>
+  </form>
+ </app-dialog>
+}
+
+@if(productModal){
+ <app-dialog [title]="productForm.id ? 'Editar Producto Floral' : 'Nuevo Producto Floral'" eyebrow="CATÁLOGO Y TIENDA WEB" (dismiss)="productModal=false;error.set('')">
+  <form (ngSubmit)="saveProductSubmit()">
+   <div class="modal-scroll">
+    @if(error()){<p class="error" role="alert">{{error()}}</p>}
+    <div style="background:rgba(46,79,40,0.08);border:1px solid rgba(46,79,40,0.25);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.85rem;display:flex;align-items:center;gap:8px;color:#2e4f28;">
+     <app-icon name="refresh"/>
+     <span>Este producto se sincronizará automáticamente en tiempo real con la tienda web pública (<strong>floreria.molinazdev.lat</strong>).</span>
+    </div>
+    <label>Nombre del Arreglo / Producto *
+     <input name="prodName" [(ngModel)]="productForm.name" required placeholder="Ej. Ramo Romance 24 Rosas">
+    </label>
+    <div class="form-grid">
+     <label>Categoría
+      <select name="prodCategory" [(ngModel)]="productForm.category">
+       <option value="Ramos">Ramos</option>
+       <option value="Premium">Premium</option>
+       <option value="Detalles">Detalles</option>
+       <option value="Condolencias">Condolencias</option>
+       <option value="Plantas">Plantas</option>
+      </select>
+     </label>
+     <label>Precio de Venta COP *
+      <input name="prodPrice" type="number" min="0" step="1000" [(ngModel)]="productForm.price" required>
+     </label>
+    </div>
+    <div class="form-grid">
+     <label>Mano de obra estimada COP
+      <input name="prodLabor" type="number" min="0" step="500" [(ngModel)]="productForm.labor">
+     </label>
+     <label>URL de Fotografía
+      <input name="prodImage" [(ngModel)]="productForm.image" placeholder="https://... o ruta de imagen">
+     </label>
+    </div>
+    <label>Descripción comercial
+     <textarea name="prodDesc" [(ngModel)]="productForm.description" rows="2" placeholder="Descripción atractiva para la tienda web y clientes"></textarea>
+    </label>
+
+    <!-- RECETA Y MATERIALES -->
+    <div style="margin-top:16px;border-top:1px solid rgba(0,0,0,0.08);padding-top:14px;">
+     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <strong style="font-size:0.95rem;">Receta de Insumos (Materiales necesarios)</strong>
+      <small style="color:#666;">Costo de materiales: {{money(productFormCost)}}</small>
+     </div>
+     
+     <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:12px;">
+      <label style="flex:2;margin:0;">Material del inventario
+       <select [(ngModel)]="productRecipeMaterialId" [ngModelOptions]="{standalone:true}">
+        @for(m of state().materials; track m.id){
+         <option [value]="m.id">{{m.name}} ({{money(m.cost)}} / {{m.unit}})</option>
+        }
+       </select>
+      </label>
+      <label style="flex:1;margin:0;">Cantidad
+       <input type="number" min="0.1" step="0.5" [(ngModel)]="productRecipeQty" [ngModelOptions]="{standalone:true}">
+      </label>
+      <button class="button secondary" type="button" (click)="addProductRecipeItem()" style="height:40px;padding:0 14px;">
+       <app-icon name="plus"/>Agregar
+      </button>
+     </div>
+
+     @if(productForm.recipe.length){
+      <div class="table-scroll" style="max-height:160px;overflow-y:auto;">
+       <table>
+        <thead>
+         <tr><th>Material</th><th>Cantidad</th><th>Costo unit.</th><th>Total</th><th></th></tr>
+        </thead>
+        <tbody>
+         @for(r of productForm.recipe; track r.materialId; let idx = $index){
+          <tr>
+           <td><strong>{{materialName(r.materialId)}}</strong></td>
+           <td>{{r.quantity}}</td>
+           <td>{{money(r.unitCost)}}</td>
+           <td>{{money(r.quantity * (r.unitCost || 0))}}</td>
+           <td style="text-align:right;">
+            <button class="text-button small" type="button" (click)="removeProductRecipeItem(idx)" style="color:#d9534f;">Quitar</button>
+           </td>
+          </tr>
+         }
+        </tbody>
+       </table>
+      </div>
+     } @else {
+      <p style="font-size:0.85rem;color:#888;margin:4px 0 12px 0;">No se han agregado insumos a la receta aún.</p>
+     }
+    </div>
+   </div>
+   <footer class="modal-footer">
+    @if(productForm.id){
+     <button class="button secondary" type="button" style="color:#b3261e;margin-right:auto;" (click)="deleteProductClick({id: productForm.id, name: productForm.name, category: productForm.category, price: productForm.price, labor: productForm.labor, image: productForm.image, description: productForm.description, recipe: productForm.recipe})">
+      <app-icon name="trash"/>Eliminar producto
+     </button>
+    }
+    <button class="button secondary" type="button" (click)="productModal=false">Cancelar</button>
+    <button class="button primary" type="submit"><app-icon name="check"/>Guardar en ERP y Tienda Web</button>
    </footer>
   </form>
  </app-dialog>

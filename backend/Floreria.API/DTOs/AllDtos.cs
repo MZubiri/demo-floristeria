@@ -179,6 +179,12 @@ public record TransitionOrderDto(
     string? DeliveryNote
 );
 
+public record UpdateOrderStatusDto(
+    string Status,
+    string? Note,
+    string? ReceivedBy
+);
+
 public record MaterialDto(
     string Id,
     string Name,

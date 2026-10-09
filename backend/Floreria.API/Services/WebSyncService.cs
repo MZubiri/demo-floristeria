@@ -351,6 +351,125 @@ public class WebSyncService : IWebSyncService
         return synced;
     }
 
+    public async Task<PushProductResultDto> PushProductToWebAsync(Product product)
+    {
+        try
+        {
+            var token = await GetWebAuthTokenAsync();
+            if (string.IsNullOrEmpty(token))
+            {
+                return new PushProductResultDto(false, null, "No se pudo autenticar con la tienda web.");
+            }
+
+            var webCategory = MapCategoryToWeb(product.Category);
+            bool isUpdate = product.Id.StartsWith("web_") && int.TryParse(product.Id[4..], out _);
+
+            if (isUpdate)
+            {
+                int idToUpdate = int.Parse(product.Id[4..]);
+                var updatePayload = new
+                {
+                    id = idToUpdate,
+                    nameEs = product.Name,
+                    nameEn = product.Name,
+                    descriptionEs = string.IsNullOrWhiteSpace(product.Description) ? product.Name : product.Description,
+                    descriptionEn = string.IsNullOrWhiteSpace(product.Description) ? product.Name : product.Description,
+                    price = product.Price,
+                    category = webCategory,
+                    image = string.IsNullOrWhiteSpace(product.Image) ? "assets/rosas.svg" : product.Image,
+                    featured = false,
+                    isActive = product.IsActive,
+                    occasionEs = "[\"Amor\",\"Aniversario\"]",
+                    occasionEn = "[\"Love\",\"Anniversary\"]"
+                };
+
+                using var putReq = new HttpRequestMessage(HttpMethod.Put, $"{BaseUrl}/api/products/{idToUpdate}")
+                {
+                    Content = new StringContent(JsonSerializer.Serialize(updatePayload), Encoding.UTF8, "application/json")
+                };
+                putReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+                var putRes = await _httpClient.SendAsync(putReq);
+                if (putRes.IsSuccessStatusCode)
+                {
+                    _logger.LogInformation("Producto {Id} ({Name}) actualizado en la tienda web.", product.Id, product.Name);
+                    return new PushProductResultDto(true, product.Id, "Producto actualizado con éxito en la tienda web.");
+                }
+
+                return new PushProductResultDto(false, product.Id, $"Error en tienda web: {putRes.StatusCode}");
+            }
+            else
+            {
+                // Producto nuevo: crear en la tienda web
+                var createPayload = new
+                {
+                    nameEs = product.Name,
+                    nameEn = product.Name,
+                    descriptionEs = string.IsNullOrWhiteSpace(product.Description) ? product.Name : product.Description,
+                    descriptionEn = string.IsNullOrWhiteSpace(product.Description) ? product.Name : product.Description,
+                    price = product.Price,
+                    category = webCategory,
+                    image = string.IsNullOrWhiteSpace(product.Image) ? "assets/rosas.svg" : product.Image,
+                    featured = false,
+                    isActive = product.IsActive,
+                    occasionEs = "[\"Amor\",\"Aniversario\"]",
+                    occasionEn = "[\"Love\",\"Anniversary\"]"
+                };
+
+                using var postReq = new HttpRequestMessage(HttpMethod.Post, $"{BaseUrl}/api/products")
+                {
+                    Content = new StringContent(JsonSerializer.Serialize(createPayload), Encoding.UTF8, "application/json")
+                };
+                postReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+                var postRes = await _httpClient.SendAsync(postReq);
+                if (postRes.IsSuccessStatusCode)
+                {
+                    var postJson = await postRes.Content.ReadAsStringAsync();
+                    using var doc = JsonDocument.Parse(postJson);
+                    if (doc.RootElement.TryGetProperty("id", out var idProp))
+                    {
+                        var newWebId = $"web_{idProp.GetInt32()}";
+                        _logger.LogInformation("Producto {Name} creado en tienda web con ID {NewWebId}.", product.Name, newWebId);
+                        return new PushProductResultDto(true, newWebId, "Producto creado y publicado con éxito en la tienda web.");
+                    }
+                }
+
+                return new PushProductResultDto(false, null, $"Error al crear en tienda web: {postRes.StatusCode}");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al sincronizar producto {Id} con la tienda web", product.Id);
+            return new PushProductResultDto(false, null, $"Error: {ex.Message}");
+        }
+    }
+
+    public async Task<bool> DeleteProductFromWebAsync(string productId)
+    {
+        try
+        {
+            if (!productId.StartsWith("web_") || !int.TryParse(productId[4..], out int webId))
+            {
+                return false;
+            }
+
+            var token = await GetWebAuthTokenAsync();
+            if (string.IsNullOrEmpty(token)) return false;
+
+            using var req = new HttpRequestMessage(HttpMethod.Delete, $"{BaseUrl}/api/products/{webId}");
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var res = await _httpClient.SendAsync(req);
+            return res.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al eliminar producto {ProductId} de la tienda web", productId);
+            return false;
+        }
+    }
+
     public async Task<bool> PushOrderStatusAsync(string orderCode, string newStatus)
     {
         try
@@ -362,20 +481,115 @@ public class WebSyncService : IWebSyncService
             var payload = new { status = webStatus };
             var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
-            using var request = new HttpRequestMessage(HttpMethod.Put, $"{BaseUrl}/api/orders/status-by-code/{orderCode}")
-            {
-                Content = content
-            };
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            // Buscar el pedido en la tienda web por su OrderCode
+            using var searchReq = new HttpRequestMessage(HttpMethod.Get, $"{BaseUrl}/api/orders?search={orderCode}");
+            searchReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            var searchRes = await _httpClient.SendAsync(searchReq);
 
-            var res = await _httpClient.SendAsync(request);
-            return res.IsSuccessStatusCode;
+            if (searchRes.IsSuccessStatusCode)
+            {
+                var searchJson = await searchRes.Content.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(searchJson);
+                if (doc.RootElement.ValueKind == JsonValueKind.Array && doc.RootElement.GetArrayLength() > 0)
+                {
+                    var webId = doc.RootElement[0].GetProperty("id").GetInt32();
+                    using var updateReq = new HttpRequestMessage(HttpMethod.Put, $"{BaseUrl}/api/orders/{webId}/status")
+                    {
+                        Content = content
+                    };
+                    updateReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                    var putRes = await _httpClient.SendAsync(updateReq);
+                    return putRes.IsSuccessStatusCode;
+                }
+            }
+
+            return false;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "No se pudo actualizar el estado del pedido {OrderCode} en la tienda web", orderCode);
             return false;
         }
+    }
+
+    public async Task<string?> PushOrderToWebAsync(Order order)
+    {
+        try
+        {
+            var token = await GetWebAuthTokenAsync();
+            var items = new List<object>();
+
+            foreach (var item in order.Items)
+            {
+                int webProdId = 1;
+                if (item.ProductId.StartsWith("web_") && int.TryParse(item.ProductId[4..], out int pid))
+                {
+                    webProdId = pid;
+                }
+
+                items.Add(new
+                {
+                    productId = webProdId,
+                    productName = item.Name,
+                    quantity = item.Quantity,
+                    unitPrice = item.Price
+                });
+            }
+
+            var payload = new
+            {
+                customerName = order.Customer,
+                customerPhone = order.Phone,
+                customerEmail = string.IsNullOrWhiteSpace(order.Email) ? "local@florerialacarreta.com" : order.Email,
+                recipientName = string.IsNullOrWhiteSpace(order.Recipient) ? order.Customer : order.Recipient,
+                recipientPhone = string.IsNullOrWhiteSpace(order.RecipientPhone) ? order.Phone : order.RecipientPhone,
+                deliveryAddress = string.IsNullOrWhiteSpace(order.Address) ? "Venta en tienda / Local" : order.Address,
+                deliveryMunicipality = string.IsNullOrWhiteSpace(order.Area) ? "Caldas" : order.Area,
+                deliveryFee = order.Shipping,
+                deliveryDate = string.IsNullOrWhiteSpace(order.DeliveryDate) ? DateTime.UtcNow.ToString("yyyy-MM-dd") : order.DeliveryDate,
+                deliveryTime = string.IsNullOrWhiteSpace(order.Time) ? "15:00" : order.Time,
+                cardStyle = "Clásica Floral",
+                cardSender = order.Customer,
+                cardMessage = order.CardMessage ?? "",
+                specialNotes = order.Notes ?? "",
+                items
+            };
+
+            using var postReq = new HttpRequestMessage(HttpMethod.Post, $"{BaseUrl}/api/orders")
+            {
+                Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
+            };
+
+            var postRes = await _httpClient.SendAsync(postReq);
+            if (postRes.IsSuccessStatusCode)
+            {
+                var resJson = await postRes.Content.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(resJson);
+                if (doc.RootElement.TryGetProperty("orderCode", out var codeProp))
+                {
+                    var webOrderCode = codeProp.GetString();
+                    var webOrderId = doc.RootElement.GetProperty("id").GetInt32();
+
+                    if (order.Status == "entregado" && !string.IsNullOrEmpty(token))
+                    {
+                        var statusPayload = new { status = "Entregado" };
+                        using var putReq = new HttpRequestMessage(HttpMethod.Put, $"{BaseUrl}/api/orders/{webOrderId}/status")
+                        {
+                            Content = new StringContent(JsonSerializer.Serialize(statusPayload), Encoding.UTF8, "application/json")
+                        };
+                        putReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                        await _httpClient.SendAsync(putReq);
+                    }
+
+                    return webOrderCode;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "No se pudo sincronizar pedido {OrderId} hacia la tienda web", order.Id);
+        }
+        return null;
     }
 
     public async Task<SyncStatusDto> GetStatusAsync()
@@ -426,6 +640,19 @@ public class WebSyncService : IWebSyncService
             "condolencias" => "Condolencias",
             "premium" => "Premium",
             _ => "Ramos"
+        };
+    }
+
+    private static string MapCategoryToWeb(string cat)
+    {
+        return (cat ?? "").ToLower() switch
+        {
+            "ramos" => "ramos",
+            "premium" => "premium",
+            "detalles" => "detalles",
+            "condolencias" => "condolencias",
+            "plantas" => "plantas",
+            _ => "ramos"
         };
     }
 

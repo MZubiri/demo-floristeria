@@ -12,10 +12,12 @@ namespace Floreria.API.Controllers;
 public class OrdersController : ControllerBase
 {
     private readonly FloreriaDbContext _context;
+    private readonly Services.IWebSyncService _webSyncService;
 
-    public OrdersController(FloreriaDbContext context)
+    public OrdersController(FloreriaDbContext context, Services.IWebSyncService webSyncService)
     {
         _context = context;
+        _webSyncService = webSyncService;
     }
 
     [HttpGet]
@@ -276,6 +278,16 @@ public class OrdersController : ControllerBase
         _context.Orders.Add(order);
         await _context.SaveChangesAsync();
 
+        // Notificar y sincronizar venta directa hacia la tienda web
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _webSyncService.PushOrderToWebAsync(order);
+            }
+            catch { }
+        });
+
         return CreatedAtAction(nameof(GetById), new { id = order.Id }, MapToDto(order));
     }
 
@@ -320,6 +332,12 @@ public class OrdersController : ControllerBase
 
         await _context.SaveChangesAsync();
         return Ok(MapToDto(order));
+    }
+
+    [HttpPut("{id}/status")]
+    public async Task<ActionResult<OrderDto>> UpdateStatus(string id, [FromBody] UpdateOrderStatusDto dto)
+    {
+        return await Transition(id, new TransitionOrderDto(dto.Status, dto.ReceivedBy, dto.Note));
     }
 
     [HttpPost("{id}/transition")]
@@ -394,6 +412,17 @@ public class OrdersController : ControllerBase
         });
 
         await _context.SaveChangesAsync();
+
+        // Notificar nuevo estado del pedido a la tienda web
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _webSyncService.PushOrderStatusAsync(order.Number, target);
+            }
+            catch { }
+        });
+
         return Ok(MapToDto(order));
     }
 

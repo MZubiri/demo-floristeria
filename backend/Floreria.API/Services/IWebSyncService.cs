@@ -19,11 +19,21 @@ public record SyncStatusDto(
     string StatusMessage
 );
 
+public record PushProductResultDto(
+    bool Success,
+    string? WebId,
+    string Message
+);
+
 public interface IWebSyncService
 {
     Task<SyncResultDto> SyncAllAsync();
     Task<int> SyncProductsAsync();
     Task<int> SyncOrdersAsync();
+    Task<PushProductResultDto> PushProductToWebAsync(Floreria.API.Models.Product product);
+    Task<bool> DeleteProductFromWebAsync(string productId);
     Task<bool> PushOrderStatusAsync(string orderCode, string newStatus);
+    Task<string?> PushOrderToWebAsync(Floreria.API.Models.Order order);
     Task<SyncStatusDto> GetStatusAsync();
 }
+

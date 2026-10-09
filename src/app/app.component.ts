@@ -156,6 +156,23 @@ export class AppComponent implements OnInit {
   roleModal = false;
   roleForm = { id: 0, name: '', description: '' };
 
+  // ==========================================
+  // MODALES DE PRODUCTOS Y RECETAS
+  // ==========================================
+  productModal = false;
+  productForm = {
+    id: '',
+    name: '',
+    category: 'Ramos',
+    price: 150000,
+    labor: 15000,
+    image: '',
+    description: '',
+    recipe: [] as { materialId: string; quantity: number; unitCost: number }[]
+  };
+  productRecipeMaterialId = '';
+  productRecipeQty = 1;
+
   ngOnInit() {
     if (this.isLoggedIn()) {
       this.store.refreshFromDatabase();
@@ -429,6 +446,93 @@ export class AppComponent implements OnInit {
       await this.store.refreshFromDatabase();
       this.roleModal = false;
       this.notify('Rol guardado en base de datos.');
+    } catch (e) {
+      this.error.set((e as Error).message);
+    }
+  }
+
+  // --- GESTIÓN DE PRODUCTOS Y RECETAS ---
+  openProductModal(p?: Product) {
+    if (p) {
+      this.productForm = {
+        id: p.id,
+        name: p.name,
+        category: p.category || 'Ramos',
+        price: p.price,
+        labor: p.labor || 0,
+        image: p.image || '',
+        description: p.description || '',
+        recipe: (p.recipe || []).map(r => ({ ...r }))
+      };
+    } else {
+      this.productForm = {
+        id: '',
+        name: '',
+        category: 'Ramos',
+        price: 150000,
+        labor: 15000,
+        image: 'https://floreria.molinazdev.lat/images/romantic-roses.jpg',
+        description: '',
+        recipe: []
+      };
+    }
+    if (this.state().materials.length && !this.productRecipeMaterialId) {
+      this.productRecipeMaterialId = this.state().materials[0].id;
+    }
+    this.error.set('');
+    this.productModal = true;
+  }
+
+  addProductRecipeItem() {
+    if (!this.productRecipeMaterialId) return;
+    const mat = this.state().materials.find(m => m.id === this.productRecipeMaterialId);
+    if (!mat) return;
+    const existing = this.productForm.recipe.find(r => r.materialId === mat.id);
+    if (existing) {
+      existing.quantity += Number(this.productRecipeQty) || 1;
+    } else {
+      this.productForm.recipe.push({
+        materialId: mat.id,
+        quantity: Number(this.productRecipeQty) || 1,
+        unitCost: mat.cost
+      });
+    }
+  }
+
+  removeProductRecipeItem(idx: number) {
+    this.productForm.recipe.splice(idx, 1);
+  }
+
+  get productFormCost(): number {
+    return (Number(this.productForm.labor) || 0) +
+      this.productForm.recipe.reduce((acc, r) => acc + (r.quantity * (r.unitCost || 0)), 0);
+  }
+
+  async saveProductSubmit() {
+    try {
+      if (!this.productForm.name.trim()) throw new Error('El nombre del producto es obligatorio.');
+      if (!this.productForm.price || this.productForm.price <= 0) throw new Error('El precio debe ser mayor que cero.');
+
+      if (this.productForm.id) {
+        await this.apiService.updateProduct(this.productForm.id, this.productForm);
+        this.notify(`Producto "${this.productForm.name}" actualizado y sincronizado en la tienda web.`);
+      } else {
+        await this.apiService.createProduct(this.productForm);
+        this.notify(`Producto "${this.productForm.name}" creado y publicado en la tienda web.`);
+      }
+      await this.store.refreshFromDatabase();
+      this.productModal = false;
+    } catch (e) {
+      this.error.set((e as Error).message);
+    }
+  }
+
+  async deleteProductClick(p: Product) {
+    if (!confirm(`¿Estás seguro de eliminar "${p.name}" del catálogo y de la tienda web?`)) return;
+    try {
+      await this.apiService.deleteProduct(p.id);
+      await this.store.refreshFromDatabase();
+      this.notify(`Producto "${p.name}" eliminado del catálogo y de la web.`);
     } catch (e) {
       this.error.set((e as Error).message);
     }

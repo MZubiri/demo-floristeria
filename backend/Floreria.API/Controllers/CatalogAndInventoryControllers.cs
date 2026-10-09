@@ -11,10 +11,12 @@ namespace Floreria.API.Controllers;
 public class ProductsController : ControllerBase
 {
     private readonly FloreriaDbContext _context;
+    private readonly Services.IWebSyncService _webSyncService;
 
-    public ProductsController(FloreriaDbContext context)
+    public ProductsController(FloreriaDbContext context, Services.IWebSyncService webSyncService)
     {
         _context = context;
+        _webSyncService = webSyncService;
     }
 
     [HttpGet]
@@ -105,9 +107,71 @@ public class ProductsController : ControllerBase
             }
         }
 
+        // Sincronizar inmediatamente hacia la tienda web desplegada
+        var pushRes = await _webSyncService.PushProductToWebAsync(prod);
+        if (pushRes.Success && !string.IsNullOrEmpty(pushRes.WebId))
+        {
+            prod.Id = pushRes.WebId;
+        }
+
         _context.Products.Add(prod);
         await _context.SaveChangesAsync();
         return CreatedAtAction(nameof(GetById), new { id = prod.Id }, prod);
+    }
+
+    [HttpPut("{id}")]
+    public async Task<ActionResult<object>> Update(string id, [FromBody] SaveProductDto dto)
+    {
+        var prod = await _context.Products
+            .Include(p => p.Recipe)
+            .FirstOrDefaultAsync(p => p.Id == id);
+
+        if (prod == null) return NotFound(new { message = "Producto no encontrado." });
+
+        prod.Name = dto.Name;
+        prod.Category = dto.Category;
+        prod.Price = dto.Price;
+        prod.Labor = dto.Labor;
+        if (!string.IsNullOrWhiteSpace(dto.Image)) prod.Image = dto.Image;
+        prod.Description = dto.Description ?? "";
+        prod.IsActive = dto.IsActive;
+
+        if (dto.Recipe != null)
+        {
+            _context.ProductRecipes.RemoveRange(prod.Recipe);
+            prod.Recipe.Clear();
+            foreach (var r in dto.Recipe)
+            {
+                prod.Recipe.Add(new ProductRecipe
+                {
+                    MaterialId = r.MaterialId,
+                    Quantity = r.Quantity,
+                    UnitCost = r.UnitCost
+                });
+            }
+        }
+
+        await _context.SaveChangesAsync();
+
+        // Actualizar en la tienda web en vivo
+        await _webSyncService.PushProductToWebAsync(prod);
+
+        return Ok(new { message = "Producto actualizado y sincronizado en la tienda web.", product = prod });
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<ActionResult> Delete(string id)
+    {
+        var prod = await _context.Products.FindAsync(id);
+        if (prod == null) return NotFound(new { message = "Producto no encontrado." });
+
+        prod.IsActive = false;
+        await _context.SaveChangesAsync();
+
+        // Notificar y eliminar de la tienda web
+        await _webSyncService.DeleteProductFromWebAsync(id);
+
+        return Ok(new { message = "Producto desactivado y sincronizado con la web." });
     }
 }
 

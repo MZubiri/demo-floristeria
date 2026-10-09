@@ -184,6 +184,19 @@ export class ApiService {
     });
   }
 
+  async updateProduct(id: string, p: any): Promise<Product> {
+    return this.request<Product>(`/products/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(p)
+    });
+  }
+
+  async deleteProduct(id: string): Promise<any> {
+    return this.request<any>(`/products/${id}`, {
+      method: 'DELETE'
+    });
+  }
+
   // ==========================================
   // INVENTARIO Y MATERIALES
   // ==========================================
