@@ -87,6 +87,15 @@ export class AppStore {
   reset() {
     this.refreshFromDatabase();
   }
+
+  clear() {
+    this.state.set(createEmptyState());
+    this.error.set('');
+    this.warning.set('');
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch { }
+  }
 }
 
 // Alias for compatibility

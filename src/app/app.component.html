@@ -70,7 +70,15 @@
   <nav aria-label="Navegación principal">
   @for(n of filteredNavItems();track n.id){@if(n.group){<p class="nav-caption">{{n.group}}</p>}<button type="button" [class.active]="view()===n.id" [attr.aria-current]="view()===n.id?'page':null" (click)="go(n.id)"><app-icon [name]="n.icon"/><span>{{n.label}}</span>@if(n.id==='pedidos'){<b>{{activeOrders().length}}</b>}</button>}
   </nav>
-  <div class="sidebar-bottom"><div class="demo-tag" style="color:#3e6335;"><span style="background:#52804b;"></span>MYSQL CONECTADO</div><p>Grandes detalles.<br>Todo bajo control.</p><small>Floristería La Carreta</small></div>
+  <div class="sidebar-bottom">
+    <div class="demo-tag" style="color:#3e6335;"><span style="background:#52804b;"></span>MYSQL CONECTADO</div>
+    <p>Grandes detalles.<br>Todo bajo control.</p>
+    <small>Floristería La Carreta</small>
+    <button type="button" class="sidebar-logout-btn" (click)="onLogoutClick()" title="Cerrar sesión de {{currentUser()?.name}}">
+      <app-icon name="logout" style="width:14px;height:14px;"/>
+      <span>Cerrar Sesión</span>
+    </button>
+  </div>
   </aside>
   <div class="main-wrap">
   <header class="topbar">
@@ -107,7 +115,9 @@
           <strong>{{currentUser()?.name || 'Usuario'}}</strong>
           <small>{{currentUser()?.roleName || 'Colaborador'}}</small>
         </div>
-        <button class="logout-btn" (click)="onLogoutClick()" title="Cerrar Sesión"><app-icon name="close" style="width:14px;height:14px;"/></button>
+        <button class="logout-btn" (click)="onLogoutClick()" title="Cerrar Sesión" aria-label="Cerrar sesión">
+          <app-icon name="logout" style="width:15px;height:15px;"/>
+        </button>
       </div>
     </div>
   </header>
@@ -357,7 +367,7 @@
  </main>
  </div>
  <nav class="mobile-nav" aria-label="Navegación móvil"><button [class.active]="view()==='inicio'" (click)="go('inicio')"><app-icon name="home"/><span>Inicio</span></button><button [class.active]="view()==='pedidos'" (click)="go('pedidos')"><app-icon name="orders"/><span>Pedidos</span></button><button [class.active]="view()==='agenda'" (click)="go('agenda')"><app-icon name="calendar"/><span>Agenda</span></button><button [class.active]="view()==='inventario'" (click)="go('inventario')"><app-icon name="stock"/><span>Stock</span></button><button [class.active]="menuOpen" (click)="menuOpen=!menuOpen" [attr.aria-expanded]="menuOpen"><app-icon name="menu"/><span>Más</span></button></nav>
- @if(menuOpen){<div class="mobile-more"><div class="section-heading"><h2>Tu floristería</h2><button class="icon-button" aria-label="Cerrar menú" (click)="menuOpen=false"><app-icon name="close"/></button></div>@for(n of filteredNavItems();track n.id){<button (click)="go(n.id)"><app-icon [name]="n.icon"/>{{n.label}}<app-icon name="chevron"/></button>}</div>}
+ @if(menuOpen){<div class="mobile-more"><div class="section-heading"><h2>Tu floristería</h2><button class="icon-button" aria-label="Cerrar menú" (click)="menuOpen=false"><app-icon name="close"/></button></div>@for(n of filteredNavItems();track n.id){<button (click)="go(n.id)"><app-icon [name]="n.icon"/>{{n.label}}<app-icon name="chevron"/></button>}<button class="mobile-logout-btn" (click)="menuOpen=false;onLogoutClick()"><app-icon name="logout" style="color:#b91c1c;width:18px;height:18px;"/><span style="color:#b91c1c;font-weight:600;">Cerrar Sesión</span><app-icon name="chevron" style="color:#b91c1c;width:14px;height:14px;"/></button></div>}
  @if(toast()){<div class="toast" role="status"><app-icon name="check"/>{{toast()}}</div>}
 </div>
 

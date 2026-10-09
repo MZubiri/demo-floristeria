@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import {
   type Order, type Line, type Payment, type Product, type Material,
   type Movement, type Expense, type User, type Role, type Attendance,
@@ -32,43 +32,53 @@ export class ApiService {
   private readonly baseUrl = (typeof window !== 'undefined' && window.location.hostname === 'localhost' && window.location.port === '4200')
     ? 'http://localhost:5000/api'
     : '/api';
-  private token: string | null = null;
-  private currentUser: User | null = null;
 
-  constructor() {
-    this.token = localStorage.getItem('lacarreta_token');
+  readonly token = signal<string | null>(this.readSavedToken());
+  readonly currentUser = signal<User | null>(this.readSavedUser());
+
+  private readSavedToken(): string | null {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('lacarreta_token');
+  }
+
+  private readSavedUser(): User | null {
+    if (typeof window === 'undefined') return null;
     const u = localStorage.getItem('lacarreta_user');
-    if (u) {
-      try { this.currentUser = JSON.parse(u); } catch { this.currentUser = null; }
-    }
+    if (!u) return null;
+    try { return JSON.parse(u); } catch { return null; }
   }
 
   get isLoggedIn(): boolean {
-    return !!this.token;
+    return !!this.token();
   }
 
   get user(): User | null {
-    return this.currentUser;
+    return this.currentUser();
   }
 
   setSession(token: string, user: User) {
-    this.token = token;
-    this.currentUser = user;
-    localStorage.setItem('lacarreta_token', token);
-    localStorage.setItem('lacarreta_user', JSON.stringify(user));
+    this.token.set(token);
+    this.currentUser.set(user);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('lacarreta_token', token);
+      localStorage.setItem('lacarreta_user', JSON.stringify(user));
+    }
   }
 
   clearSession() {
-    this.token = null;
-    this.currentUser = null;
-    localStorage.removeItem('lacarreta_token');
-    localStorage.removeItem('lacarreta_user');
+    this.token.set(null);
+    this.currentUser.set(null);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('lacarreta_token');
+      localStorage.removeItem('lacarreta_user');
+    }
   }
 
   private headers(): HeadersInit {
     const h: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (this.token) {
-      h['Authorization'] = `Bearer ${this.token}`;
+    const t = this.token();
+    if (t) {
+      h['Authorization'] = `Bearer ${t}`;
     }
     return h;
   }

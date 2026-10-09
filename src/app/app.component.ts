@@ -32,12 +32,12 @@ export class AppComponent implements OnInit, OnDestroy {
   // ==========================================
   // AUTENTICACIÓN Y CONTROL DE ACCESO
   // ==========================================
-  readonly isLoggedIn = signal<boolean>(this.apiService.isLoggedIn);
+  readonly isLoggedIn = computed(() => !!this.apiService.token());
   loginEmail = 'admin@floristeria.com';
   loginPassword = 'admin123';
   readonly loginLoading = signal<boolean>(false);
   readonly loginError = signal<string>('');
-  readonly currentUser = computed(() => this.apiService.user);
+  readonly currentUser = computed(() => this.apiService.currentUser());
 
   readonly isAdmin = computed(() => {
     const r = (this.currentUser()?.roleName || '').toLowerCase();
@@ -449,14 +449,13 @@ export class AppComponent implements OnInit, OnDestroy {
     this.loginLoading.set(true);
     this.loginError.set('');
     try {
-      await this.apiService.login(this.loginEmail, this.loginPassword);
-      this.isLoggedIn.set(true);
+      const res = await this.apiService.login(this.loginEmail, this.loginPassword);
       await this.store.refreshFromDatabase();
       this.checkWebSyncStatus();
-      this.notify(`¡Bienvenido a Florería La Carreta, ${this.currentUser()?.name || ''}!`);
+      this.notify(`¡Bienvenido a Florería La Carreta, ${res.user.name || ''}!`);
 
       // Set default landing view according to role
-      const role = (this.currentUser()?.roleName || '').toLowerCase();
+      const role = (res.user.roleName || '').toLowerCase();
       if (role.includes('repart')) {
         this.view.set('agenda');
       } else if (role.includes('floris')) {
@@ -483,7 +482,14 @@ export class AppComponent implements OnInit, OnDestroy {
 
   doLogout() {
     this.apiService.clearSession();
-    this.isLoggedIn.set(false);
+    this.store.clear();
+    this.view.set('inicio');
+    this.loginEmail = '';
+    this.loginPassword = '';
+    this.loginError.set('');
+    this.checkInModal = false;
+    this.logoutModal = false;
+    this.menuOpen = false;
     this.notify('Sesión cerrada correctamente.');
   }
 
