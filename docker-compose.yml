@@ -1,51 +1,41 @@
 version: '3.8'
 
 services:
-  mysql:
-    image: mysql:8.0
-    container_name: floreria-mysql
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: gestion_floreria
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-      - ./database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
-      - ./database/seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   backend:
     build:
       context: ./backend/Floreria.API
       dockerfile: Dockerfile
     container_name: floreria-backend
-    restart: always
-    depends_on:
-      mysql:
-        condition: service_healthy
+    restart: unless-stopped
     environment:
-      ConnectionStrings__DefaultConnection: "Server=mysql;Port=3306;Database=gestion_floreria;User=root;Password=root;TreatTinyAsBoolean=true;AllowUserVariables=true;CharSet=utf8mb4;"
-      ASPNETCORE_ENVIRONMENT: "Development"
+      ConnectionStrings__DefaultConnection: "Server=db-unl29eotgeh0en5doienwffm-060146524663;Port=3306;Database=floreria_lacarreta_db;User=root;Password=FloreriaRootPass2026!;AllowPublicKeyRetrieval=True;SslMode=None;TreatTinyAsBoolean=true;AllowUserVariables=true;CharSet=utf8mb4;"
+      ASPNETCORE_ENVIRONMENT: "Production"
       ASPNETCORE_URLS: "http://+:5000"
-    ports:
-      - "5000:5000"
+    expose:
+      - "5000"
+    networks:
+      - default
+      - coolify
 
   frontend:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: floreria-frontend
-    restart: always
+    restart: unless-stopped
     depends_on:
       - backend
-    ports:
-      - "8080:80"
+    expose:
+      - "80"
+    labels:
+      - coolify.managed=true
+      - "coolify.fqdn=https://gestionfloreria.molinazdev.lat"
+      - traefik.http.services.frontend.loadbalancer.server.port=80
+    networks:
+      - default
+      - coolify
 
-volumes:
-  mysql_data:
+networks:
+  default:
+  coolify:
+    external: true

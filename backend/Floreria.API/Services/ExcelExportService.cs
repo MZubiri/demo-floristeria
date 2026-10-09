@@ -23,7 +23,7 @@ public class ExcelExportService : IExcelExportService
         var ws = workbook.Worksheets.Add("Pedidos y Ventas");
 
         // Título
-        ws.Cell("A1").Value = "FLORÉ ESTUDIO FLORAL - REPORTE DE PEDIDOS Y VENTAS";
+        ws.Cell("A1").Value = "FLORISTERÍA LA CARRETA - REPORTE DE PEDIDOS Y VENTAS";
         ws.Range("A1:K1").Merge();
         ws.Cell("A1").Style.Font.Bold = true;
         ws.Cell("A1").Style.Font.FontSize = 14;
@@ -90,7 +90,7 @@ public class ExcelExportService : IExcelExportService
         using var workbook = new XLWorkbook();
         var ws = workbook.Worksheets.Add("Pase de Lista");
 
-        ws.Cell("A1").Value = "FLORÉ ESTUDIO FLORAL - CONTROL DE ASISTENCIA Y PASE DE LISTA";
+        ws.Cell("A1").Value = "FLORISTERÍA LA CARRETA - CONTROL DE ASISTENCIA Y PASE DE LISTA";
         ws.Range("A1:G1").Merge();
         ws.Cell("A1").Style.Font.Bold = true;
         ws.Cell("A1").Style.Font.FontSize = 14;
@@ -144,7 +144,7 @@ public class ExcelExportService : IExcelExportService
         using var workbook = new XLWorkbook();
         var ws = workbook.Worksheets.Add("Inventario Floral");
 
-        ws.Cell("A1").Value = "FLORÉ ESTUDIO FLORAL - INVENTARIO Y STOCK DE MATERIALES";
+        ws.Cell("A1").Value = "FLORISTERÍA LA CARRETA - INVENTARIO Y STOCK DE MATERIALES";
         ws.Range("A1:J1").Merge();
         ws.Cell("A1").Style.Font.Bold = true;
         ws.Cell("A1").Style.Font.FontSize = 14;
@@ -215,7 +215,7 @@ public class ExcelExportService : IExcelExportService
         using var workbook = new XLWorkbook();
         var ws = workbook.Worksheets.Add("Resumen Financiero");
 
-        ws.Cell("A1").Value = "FLORÉ ESTUDIO FLORAL - ESTADO FINANCIERO Y GASTOS";
+        ws.Cell("A1").Value = "FLORISTERÍA LA CARRETA - ESTADO FINANCIERO Y GASTOS";
         ws.Range("A1:D1").Merge();
         ws.Cell("A1").Style.Font.Bold = true;
         ws.Cell("A1").Style.Font.FontSize = 14;

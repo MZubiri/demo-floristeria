@@ -49,16 +49,7 @@ public class SyncController : ControllerBase
     [HttpPost("webhook")]
     public async Task<ActionResult<object>> HandleWebShopWebhook([FromBody] object? payload)
     {
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await _syncService.SyncOrdersAsync();
-                await _syncService.CheckAndSyncStockAvailabilityAsync();
-            }
-            catch { }
-        });
-
+        await _syncService.CheckAndSyncStockAvailabilityAsync();
         return Ok(new { success = true, message = "Webhook recibido y procesado en tiempo real." });
     }
 }

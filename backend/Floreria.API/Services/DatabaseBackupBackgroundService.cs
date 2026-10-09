@@ -52,14 +52,14 @@ public class DatabaseBackupBackgroundService : BackgroundService
 
         var today = DateTime.UtcNow.ToString("yyyyMMdd");
         // Verificar si ya existe un respaldo para hoy
-        var existingToday = Directory.GetFiles(dir, $"gestion_floreria_backup_{today}_*.sql");
+        var existingToday = Directory.GetFiles(dir, $"floreria_lacarreta_backup_{today}_*.sql");
         if (existingToday.Any())
         {
             return;
         }
 
         var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
-        var fileName = $"gestion_floreria_backup_{timestamp}.sql";
+        var fileName = $"floreria_lacarreta_backup_{timestamp}.sql";
         var filePath = Path.Combine(dir, fileName);
 
         var mysqldumpPath = FindMysqldumpBinary();
@@ -68,7 +68,7 @@ public class DatabaseBackupBackgroundService : BackgroundService
         var startInfo = new ProcessStartInfo
         {
             FileName = mysqldumpPath,
-            Arguments = $"-u root -pmysql --single-transaction --quick --databases gestion_floreria -r \"{filePath}\"",
+            Arguments = $"-u root -pmysql --single-transaction --quick --databases floreria_lacarreta_db -r \"{filePath}\"",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,

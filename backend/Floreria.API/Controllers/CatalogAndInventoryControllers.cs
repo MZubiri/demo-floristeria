@@ -28,7 +28,7 @@ public class ProductsController : ControllerBase
             .Where(p => p.IsActive)
             .Select(p => new
             {
-                p.Id,
+                Id = p.Id.ToString(),
                 p.Name,
                 p.Category,
                 p.Price,
@@ -51,16 +51,17 @@ public class ProductsController : ControllerBase
     [HttpGet("{id}")]
     public async Task<ActionResult<object>> GetById(string id)
     {
+        int.TryParse(id, out int intId);
         var p = await _context.Products
             .Include(x => x.Recipe)
                 .ThenInclude(r => r.Material)
-            .FirstOrDefaultAsync(x => x.Id == id);
+            .FirstOrDefaultAsync(x => x.Id == intId);
 
         if (p == null) return NotFound(new { message = "Producto no encontrado." });
 
         return Ok(new
         {
-            p.Id,
+            Id = p.Id.ToString(),
             p.Name,
             p.Category,
             p.Price,
@@ -83,16 +84,16 @@ public class ProductsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<object>> Create([FromBody] SaveProductDto dto)
     {
-        var id = string.IsNullOrWhiteSpace(dto.Id) ? "p_" + Guid.NewGuid().ToString("N")[..8] : dto.Id;
         var prod = new Product
         {
-            Id = id,
             Name = dto.Name,
+            NameEn = dto.Name,
             Category = dto.Category,
             Price = dto.Price,
             Labor = dto.Labor,
             Image = dto.Image ?? "assets/rosas.svg",
             Description = dto.Description ?? "",
+            DescriptionEn = dto.Description ?? "",
             IsActive = dto.IsActive,
             Sku = !string.IsNullOrWhiteSpace(dto.Sku) ? dto.Sku : $"LC-{dto.Category.ToUpper()[..Math.Min(3, dto.Category.Length)]}-001"
         };
@@ -110,33 +111,41 @@ public class ProductsController : ControllerBase
             }
         }
 
-        // Sincronizar inmediatamente hacia la tienda web desplegada
-        var pushRes = await _webSyncService.PushProductToWebAsync(prod);
-        if (pushRes.Success && !string.IsNullOrEmpty(pushRes.WebId))
-        {
-            prod.Id = pushRes.WebId;
-        }
-
         _context.Products.Add(prod);
         await _context.SaveChangesAsync();
-        return CreatedAtAction(nameof(GetById), new { id = prod.Id }, prod);
+
+        return CreatedAtAction(nameof(GetById), new { id = prod.Id.ToString() }, new
+        {
+            Id = prod.Id.ToString(),
+            prod.Name,
+            prod.Category,
+            prod.Price,
+            prod.Labor,
+            prod.Image,
+            prod.Description,
+            prod.IsActive,
+            prod.Sku
+        });
     }
 
     [HttpPut("{id}")]
     public async Task<ActionResult<object>> Update(string id, [FromBody] SaveProductDto dto)
     {
+        int.TryParse(id, out int intId);
         var prod = await _context.Products
             .Include(p => p.Recipe)
-            .FirstOrDefaultAsync(p => p.Id == id);
+            .FirstOrDefaultAsync(p => p.Id == intId);
 
         if (prod == null) return NotFound(new { message = "Producto no encontrado." });
 
         prod.Name = dto.Name;
+        prod.NameEn = dto.Name;
         prod.Category = dto.Category;
         prod.Price = dto.Price;
         prod.Labor = dto.Labor;
         if (!string.IsNullOrWhiteSpace(dto.Image)) prod.Image = dto.Image;
         prod.Description = dto.Description ?? "";
+        prod.DescriptionEn = dto.Description ?? "";
         prod.IsActive = dto.IsActive;
         if (!string.IsNullOrWhiteSpace(dto.Sku)) prod.Sku = dto.Sku;
 
@@ -157,25 +166,20 @@ public class ProductsController : ControllerBase
 
         await _context.SaveChangesAsync();
 
-        // Actualizar en la tienda web en vivo
-        await _webSyncService.PushProductToWebAsync(prod);
-
-        return Ok(new { message = "Producto actualizado y sincronizado en la tienda web.", product = prod });
+        return Ok(new { message = "Producto actualizado en la base de datos unificada.", product = prod });
     }
 
     [HttpDelete("{id}")]
     public async Task<ActionResult> Delete(string id)
     {
-        var prod = await _context.Products.FindAsync(id);
+        int.TryParse(id, out int intId);
+        var prod = await _context.Products.FindAsync(intId);
         if (prod == null) return NotFound(new { message = "Producto no encontrado." });
 
         prod.IsActive = false;
         await _context.SaveChangesAsync();
 
-        // Notificar y eliminar de la tienda web
-        await _webSyncService.DeleteProductFromWebAsync(id);
-
-        return Ok(new { message = "Producto desactivado y sincronizado con la web." });
+        return Ok(new { message = "Producto desactivado en la base de datos unificada." });
     }
 }
 
@@ -263,7 +267,7 @@ public class InventoryController : ControllerBase
                 m.Cost,
                 m.Date,
                 m.Reason,
-                m.OrderId
+                m.OrderId != null ? m.OrderId.ToString() : null
             ))
             .ToListAsync();
 

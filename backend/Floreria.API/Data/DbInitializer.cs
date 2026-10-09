@@ -76,47 +76,47 @@ public static class DbInitializer
         // 4. Products & Recipes
         if (!await context.Products.AnyAsync())
         {
-            var p1 = new Product { Id = "p1", Name = "Amor en doce rosas", Category = "Ramos", Price = 180000, Labor = 18000, Image = "assets/rosas.svg", Description = "Doce rosas rojas, follaje fresco y una dedicatoria inolvidable.", Sku = "LC-RAM-001" };
-            var p2 = new Product { Id = "p2", Name = "Un poquito de sol", Category = "Ramos", Price = 145000, Labor = 18000, Image = "assets/girasoles.svg", Description = "Girasoles luminosos envueltos en papel natural.", Sku = "LC-RAM-002" };
-            var p3 = new Product { Id = "p3", Name = "Susurro de tulipanes", Category = "Premium", Price = 230000, Labor = 24000, Image = "assets/tulipanes.svg", Description = "Diez tulipanes rosados para decirlo todo sin palabras.", Sku = "LC-PRE-001" };
-            var p4 = new Product { Id = "p4", Name = "Jardín de calma", Category = "Premium", Price = 195000, Labor = 22000, Image = "assets/blancas.svg", Description = "Rosas blancas y eucalipto, delicadeza en su forma más pura.", Sku = "LC-PRE-002" };
-            var p5 = new Product { Id = "p5", Name = "Abrazo floral", Category = "Detalles", Price = 210000, Labor = 18000, Image = "assets/abrazo.svg", Description = "Rosas rojas con un pequeño compañero de peluche.", Sku = "LC-DET-001" };
+            var p1 = new Product { Name = "Amor en doce rosas", NameEn = "Amor en doce rosas", Category = "Ramos", Price = 180000, Labor = 18000, Image = "assets/rosas.svg", Description = "Doce rosas rojas, follaje fresco y una dedicatoria inolvidable.", DescriptionEn = "Doce rosas rojas, follaje fresco y una dedicatoria inolvidable.", Sku = "LC-RAM-001" };
+            var p2 = new Product { Name = "Un poquito de sol", NameEn = "Un poquito de sol", Category = "Ramos", Price = 145000, Labor = 18000, Image = "assets/girasoles.svg", Description = "Girasoles luminosos envueltos en papel natural.", DescriptionEn = "Girasoles luminosos envueltos en papel natural.", Sku = "LC-RAM-002" };
+            var p3 = new Product { Name = "Susurro de tulipanes", NameEn = "Susurro de tulipanes", Category = "Premium", Price = 230000, Labor = 24000, Image = "assets/tulipanes.svg", Description = "Diez tulipanes rosados para decirlo todo sin palabras.", DescriptionEn = "Diez tulipanes rosados para decirlo todo sin palabras.", Sku = "LC-PRE-001" };
+            var p4 = new Product { Name = "Jardín de calma", NameEn = "Jardín de calma", Category = "Premium", Price = 195000, Labor = 22000, Image = "assets/blancas.svg", Description = "Rosas blancas y eucalipto, delicadeza en su forma más pura.", DescriptionEn = "Rosas blancas y eucalipto, delicadeza en su forma más pura.", Sku = "LC-PRE-002" };
+            var p5 = new Product { Name = "Abrazo floral", NameEn = "Abrazo floral", Category = "Detalles", Price = 210000, Labor = 18000, Image = "assets/abrazo.svg", Description = "Rosas rojas con un pequeño compañero de peluche.", DescriptionEn = "Rosas rojas con un pequeño compañero de peluche.", Sku = "LC-DET-001" };
 
             await context.Products.AddRangeAsync(p1, p2, p3, p4, p5);
             await context.SaveChangesAsync();
 
             var recipes = new List<ProductRecipe>
             {
-                new() { ProductId = "p1", MaterialId = "rosa", Quantity = 12, UnitCost = 3000 },
-                new() { ProductId = "p1", MaterialId = "euca", Quantity = 2, UnitCost = 1800 },
-                new() { ProductId = "p1", MaterialId = "papel", Quantity = 2, UnitCost = 2800 },
-                new() { ProductId = "p1", MaterialId = "cinta", Quantity = 1, UnitCost = 1200 },
-                new() { ProductId = "p1", MaterialId = "tarjeta", Quantity = 1, UnitCost = 800 },
+                new() { ProductId = p1.Id, MaterialId = "rosa", Quantity = 12, UnitCost = 3000 },
+                new() { ProductId = p1.Id, MaterialId = "euca", Quantity = 2, UnitCost = 1800 },
+                new() { ProductId = p1.Id, MaterialId = "papel", Quantity = 2, UnitCost = 2800 },
+                new() { ProductId = p1.Id, MaterialId = "cinta", Quantity = 1, UnitCost = 1200 },
+                new() { ProductId = p1.Id, MaterialId = "tarjeta", Quantity = 1, UnitCost = 800 },
 
-                new() { ProductId = "p2", MaterialId = "girasol", Quantity = 6, UnitCost = 4800 },
-                new() { ProductId = "p2", MaterialId = "euca", Quantity = 2, UnitCost = 1800 },
-                new() { ProductId = "p2", MaterialId = "papel", Quantity = 2, UnitCost = 2800 },
-                new() { ProductId = "p2", MaterialId = "cinta", Quantity = 1, UnitCost = 1200 },
-                new() { ProductId = "p2", MaterialId = "tarjeta", Quantity = 1, UnitCost = 800 },
+                new() { ProductId = p2.Id, MaterialId = "girasol", Quantity = 6, UnitCost = 4800 },
+                new() { ProductId = p2.Id, MaterialId = "euca", Quantity = 2, UnitCost = 1800 },
+                new() { ProductId = p2.Id, MaterialId = "papel", Quantity = 2, UnitCost = 2800 },
+                new() { ProductId = p2.Id, MaterialId = "cinta", Quantity = 1, UnitCost = 1200 },
+                new() { ProductId = p2.Id, MaterialId = "tarjeta", Quantity = 1, UnitCost = 800 },
 
-                new() { ProductId = "p3", MaterialId = "tulipan", Quantity = 10, UnitCost = 5500 },
-                new() { ProductId = "p3", MaterialId = "euca", Quantity = 2, UnitCost = 1800 },
-                new() { ProductId = "p3", MaterialId = "papel", Quantity = 2, UnitCost = 2800 },
-                new() { ProductId = "p3", MaterialId = "cinta", Quantity = 1, UnitCost = 1200 },
-                new() { ProductId = "p3", MaterialId = "tarjeta", Quantity = 1, UnitCost = 800 },
+                new() { ProductId = p3.Id, MaterialId = "tulipan", Quantity = 10, UnitCost = 5500 },
+                new() { ProductId = p3.Id, MaterialId = "euca", Quantity = 2, UnitCost = 1800 },
+                new() { ProductId = p3.Id, MaterialId = "papel", Quantity = 2, UnitCost = 2800 },
+                new() { ProductId = p3.Id, MaterialId = "cinta", Quantity = 1, UnitCost = 1200 },
+                new() { ProductId = p3.Id, MaterialId = "tarjeta", Quantity = 1, UnitCost = 800 },
 
-                new() { ProductId = "p4", MaterialId = "blanca", Quantity = 12, UnitCost = 3200 },
-                new() { ProductId = "p4", MaterialId = "euca", Quantity = 3, UnitCost = 1800 },
-                new() { ProductId = "p4", MaterialId = "papel", Quantity = 2, UnitCost = 2800 },
-                new() { ProductId = "p4", MaterialId = "cinta", Quantity = 1, UnitCost = 1200 },
-                new() { ProductId = "p4", MaterialId = "tarjeta", Quantity = 1, UnitCost = 800 },
+                new() { ProductId = p4.Id, MaterialId = "blanca", Quantity = 12, UnitCost = 3200 },
+                new() { ProductId = p4.Id, MaterialId = "euca", Quantity = 3, UnitCost = 1800 },
+                new() { ProductId = p4.Id, MaterialId = "papel", Quantity = 2, UnitCost = 2800 },
+                new() { ProductId = p4.Id, MaterialId = "cinta", Quantity = 1, UnitCost = 1200 },
+                new() { ProductId = p4.Id, MaterialId = "tarjeta", Quantity = 1, UnitCost = 800 },
 
-                new() { ProductId = "p5", MaterialId = "rosa", Quantity = 8, UnitCost = 3000 },
-                new() { ProductId = "p5", MaterialId = "oso", Quantity = 1, UnitCost = 16000 },
-                new() { ProductId = "p5", MaterialId = "euca", Quantity = 2, UnitCost = 1800 },
-                new() { ProductId = "p5", MaterialId = "papel", Quantity = 2, UnitCost = 2800 },
-                new() { ProductId = "p5", MaterialId = "cinta", Quantity = 1, UnitCost = 1200 },
-                new() { ProductId = "p5", MaterialId = "tarjeta", Quantity = 1, UnitCost = 800 }
+                new() { ProductId = p5.Id, MaterialId = "rosa", Quantity = 8, UnitCost = 3000 },
+                new() { ProductId = p5.Id, MaterialId = "oso", Quantity = 1, UnitCost = 16000 },
+                new() { ProductId = p5.Id, MaterialId = "euca", Quantity = 2, UnitCost = 1800 },
+                new() { ProductId = p5.Id, MaterialId = "papel", Quantity = 2, UnitCost = 2800 },
+                new() { ProductId = p5.Id, MaterialId = "cinta", Quantity = 1, UnitCost = 1200 },
+                new() { ProductId = p5.Id, MaterialId = "tarjeta", Quantity = 1, UnitCost = 800 }
             };
             await context.ProductRecipes.AddRangeAsync(recipes);
             await context.SaveChangesAsync();
@@ -129,8 +129,7 @@ public static class DbInitializer
             foreach (var p in prodsWithoutSku)
             {
                 var catPrefix = p.Category.Length >= 3 ? p.Category.ToUpper()[..3] : "FLC";
-                var cleanId = p.Id.Replace("web_", "").Replace("p", "");
-                p.Sku = $"LC-{catPrefix}-{(int.TryParse(cleanId, out var num) ? num.ToString("D3") : "001")}";
+                p.Sku = $"LC-{catPrefix}-{p.Id:D3}";
             }
             await context.SaveChangesAsync();
         }

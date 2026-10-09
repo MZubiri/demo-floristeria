@@ -69,11 +69,12 @@ public class OrdersController : ControllerBase
     [HttpGet("{id}")]
     public async Task<ActionResult<OrderDto>> GetById(string id)
     {
+        int.TryParse(id, out int intId);
         var o = await _context.Orders
             .Include(x => x.Items)
             .Include(x => x.Payments)
             .Include(x => x.History)
-            .FirstOrDefaultAsync(x => x.Id == id);
+            .FirstOrDefaultAsync(x => x.Id == intId || x.Number == id);
 
         if (o == null) return NotFound(new { message = "Pedido no encontrado." });
 
@@ -85,9 +86,8 @@ public class OrdersController : ControllerBase
     {
         var order = new Order
         {
-            Id = string.IsNullOrWhiteSpace(dto.Id) ? Guid.NewGuid().ToString() : dto.Id,
             Number = string.IsNullOrWhiteSpace(dto.Number) ? await GenerateOrderNumberAsync("FL-") : dto.Number,
-            CreatedAt = DateTime.UtcNow.ToString("o"),
+            CreatedAt = DateTime.UtcNow,
             Customer = dto.Customer.Trim(),
             Phone = dto.Phone.Trim(),
             Email = dto.Email?.Trim() ?? "",
@@ -101,7 +101,6 @@ public class OrdersController : ControllerBase
             Priority = dto.Priority ?? "Normal",
             Discount = dto.Discount,
             Shipping = dto.Shipping,
-            HasCard = dto.HasCard,
             CardMessage = dto.CardMessage ?? "",
             Notes = dto.Notes ?? "",
             Status = string.IsNullOrWhiteSpace(dto.Status) ? "recibido" : dto.Status,
@@ -109,25 +108,29 @@ public class OrdersController : ControllerBase
             IsDirectSale = false
         };
 
+        decimal subtotal = 0;
         foreach (var item in dto.Items)
         {
+            int.TryParse(item.ProductId, out int pid);
+            decimal itemTotal = item.Price * item.Quantity;
+            subtotal += itemTotal;
+
             order.Items.Add(new OrderItem
             {
-                Id = Guid.NewGuid().ToString(),
-                OrderId = order.Id,
-                ProductId = item.ProductId,
+                ProductId = pid,
                 Name = item.Name,
                 Quantity = item.Quantity,
                 Price = item.Price,
+                TotalPrice = itemTotal,
                 Labor = item.Labor,
                 Notes = item.Notes ?? "",
                 RecipeJson = JsonSerializer.Serialize(item.Recipe)
             });
         }
+        order.TotalAmount = Math.Max(0, subtotal - dto.Discount + dto.Shipping);
 
         order.History.Add(new OrderHistory
         {
-            OrderId = order.Id,
             Date = DateTime.UtcNow.ToString("o"),
             Title = "Pedido creado",
             Note = "Registrado desde el sistema"
@@ -136,7 +139,7 @@ public class OrdersController : ControllerBase
         _context.Orders.Add(order);
         await _context.SaveChangesAsync();
 
-        return CreatedAtAction(nameof(GetById), new { id = order.Id }, MapToDto(order));
+        return CreatedAtAction(nameof(GetById), new { id = order.Id.ToString() }, MapToDto(order));
     }
 
     /// <summary>
@@ -150,7 +153,6 @@ public class OrdersController : ControllerBase
             return BadRequest(new { message = "Debe incluir al menos un producto en la venta." });
         }
 
-        var orderId = Guid.NewGuid().ToString();
         var orderNumber = await GenerateOrderNumberAsync("POS-");
         var now = DateTime.UtcNow.ToString("o");
         var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
@@ -161,9 +163,8 @@ public class OrdersController : ControllerBase
 
         var order = new Order
         {
-            Id = orderId,
             Number = orderNumber,
-            CreatedAt = now,
+            CreatedAt = DateTime.UtcNow,
             Customer = customerName,
             Phone = customerPhone,
             Recipient = customerName,
@@ -176,7 +177,6 @@ public class OrdersController : ControllerBase
             Priority = "Inmediata",
             Discount = dto.Discount,
             Shipping = 0,
-            HasCard = false,
             Notes = dto.Notes ?? "Venta directa de mostrador en punto de venta",
             Status = "entregado",
             Consumed = true,
@@ -189,30 +189,37 @@ public class OrdersController : ControllerBase
         decimal subtotal = 0;
 
         // Cargar productos y recetas para descontar inventario
-        var productIds = dto.Items.Select(i => i.ProductId).Distinct().ToList();
+        var productIntIds = dto.Items
+            .Select(i => int.TryParse(i.ProductId, out var pid) ? pid : 0)
+            .Where(p => p > 0)
+            .Distinct()
+            .ToList();
+
         var dbProducts = await _context.Products
             .Include(p => p.Recipe)
-            .Where(p => productIds.Contains(p.Id))
+            .Where(p => productIntIds.Contains(p.Id))
             .ToListAsync();
 
         var materials = await _context.Materials.ToListAsync();
+        var pendingStockMovements = new List<StockMovement>();
 
         foreach (var item in dto.Items)
         {
-            subtotal += item.Price * item.Quantity;
-            var prod = dbProducts.FirstOrDefault(p => p.Id == item.ProductId);
+            decimal itemTotal = item.Price * item.Quantity;
+            subtotal += itemTotal;
+            int.TryParse(item.ProductId, out int pid);
+            var prod = dbProducts.FirstOrDefault(p => p.Id == pid);
             var recipeIngredients = prod != null
                 ? prod.Recipe.Select(r => new IngredientDto(r.MaterialId, r.Quantity, r.UnitCost)).ToList()
                 : new List<IngredientDto>();
 
             order.Items.Add(new OrderItem
             {
-                Id = Guid.NewGuid().ToString(),
-                OrderId = orderId,
-                ProductId = item.ProductId,
+                ProductId = pid,
                 Name = item.Name,
                 Quantity = item.Quantity,
                 Price = item.Price,
+                TotalPrice = itemTotal,
                 Labor = prod?.Labor ?? 0,
                 Notes = "Venta directa mostrador",
                 RecipeJson = JsonSerializer.Serialize(recipeIngredients)
@@ -229,7 +236,7 @@ public class OrdersController : ControllerBase
                         var consumeQty = r.Quantity * item.Quantity;
                         mat.Stock = Math.Max(0, mat.Stock - consumeQty);
 
-                        _context.StockMovements.Add(new StockMovement
+                        pendingStockMovements.Add(new StockMovement
                         {
                             Id = Guid.NewGuid().ToString(),
                             MaterialId = mat.Id,
@@ -237,8 +244,7 @@ public class OrdersController : ControllerBase
                             Quantity = consumeQty,
                             Cost = mat.Cost,
                             Date = now,
-                            Reason = $"Venta directa mostrador {orderNumber}",
-                            OrderId = orderId
+                            Reason = $"Venta directa mostrador {orderNumber}"
                         });
                     }
                 }
@@ -246,12 +252,12 @@ public class OrdersController : ControllerBase
         }
 
         var total = Math.Max(0, subtotal - dto.Discount);
+        order.TotalAmount = total;
 
         // Registrar pago completo inmediato
         order.Payments.Add(new Payment
         {
             Id = Guid.NewGuid().ToString(),
-            OrderId = orderId,
             Amount = total,
             Method = string.IsNullOrWhiteSpace(dto.PaymentMethod) ? "Efectivo" : dto.PaymentMethod,
             Reference = string.IsNullOrWhiteSpace(dto.Reference) ? "Venta en mostrador" : dto.Reference,
@@ -261,7 +267,6 @@ public class OrdersController : ControllerBase
         // Registrar historial
         order.History.Add(new OrderHistory
         {
-            OrderId = orderId,
             Date = now,
             Title = "Venta directa en mostrador",
             Note = $"Cobrado {total:C0} COP con {dto.PaymentMethod}. Materiales consumidos de inventario."
@@ -269,7 +274,6 @@ public class OrdersController : ControllerBase
 
         order.History.Add(new OrderHistory
         {
-            OrderId = orderId,
             Date = now,
             Title = "Entregado en local",
             Note = "Entregado de inmediato en el mostrador"
@@ -278,28 +282,38 @@ public class OrdersController : ControllerBase
         _context.Orders.Add(order);
         await _context.SaveChangesAsync();
 
-        // Notificar y sincronizar venta directa hacia la tienda web y revisar insumos
+        if (pendingStockMovements.Any())
+        {
+            foreach (var sm in pendingStockMovements)
+            {
+                sm.OrderId = order.Id;
+                _context.StockMovements.Add(sm);
+            }
+            await _context.SaveChangesAsync();
+        }
+
+        // Revisar insumos para desactivar productos agotados si es necesario
         _ = Task.Run(async () =>
         {
             try
             {
-                await _webSyncService.PushOrderToWebAsync(order);
                 await _webSyncService.CheckAndSyncStockAvailabilityAsync();
             }
             catch { }
         });
 
-        return CreatedAtAction(nameof(GetById), new { id = order.Id }, MapToDto(order));
+        return CreatedAtAction(nameof(GetById), new { id = order.Id.ToString() }, MapToDto(order));
     }
 
     [HttpPost("{id}/payments")]
     public async Task<ActionResult<OrderDto>> AddPayment(string id, [FromBody] AddPaymentDto dto)
     {
+        int.TryParse(id, out int intId);
         var order = await _context.Orders
             .Include(o => o.Items)
             .Include(o => o.Payments)
             .Include(o => o.History)
-            .FirstOrDefaultAsync(o => o.Id == id);
+            .FirstOrDefaultAsync(o => o.Id == intId || o.Number == id);
 
         if (order == null) return NotFound(new { message = "Pedido no encontrado." });
         if (order.Status == "cancelado") return BadRequest(new { message = "No se pueden agregar abonos a un pedido cancelado." });
@@ -344,11 +358,12 @@ public class OrdersController : ControllerBase
     [HttpPost("{id}/transition")]
     public async Task<ActionResult<OrderDto>> Transition(string id, [FromBody] TransitionOrderDto dto)
     {
+        int.TryParse(id, out int intId);
         var order = await _context.Orders
             .Include(o => o.Items)
             .Include(o => o.Payments)
             .Include(o => o.History)
-            .FirstOrDefaultAsync(o => o.Id == id);
+            .FirstOrDefaultAsync(o => o.Id == intId || o.Number == id);
 
         if (order == null) return NotFound(new { message = "Pedido no encontrado." });
 
@@ -436,11 +451,12 @@ public class OrdersController : ControllerBase
     [HttpPost("{id}/final-photo")]
     public async Task<ActionResult<OrderDto>> SetFinalPhoto(string id, [FromBody] SetFinalPhotoRequest req)
     {
+        int.TryParse(id, out int intId);
         var order = await _context.Orders
             .Include(o => o.Items)
             .Include(o => o.Payments)
             .Include(o => o.History)
-            .FirstOrDefaultAsync(o => o.Id == id);
+            .FirstOrDefaultAsync(o => o.Id == intId || o.Number == id);
 
         if (order == null) return NotFound(new { message = "Pedido no encontrado." });
         if (string.IsNullOrWhiteSpace(req.PhotoUrl)) return BadRequest(new { message = "La URL de la foto es requerida." });
@@ -482,9 +498,9 @@ public class OrdersController : ControllerBase
         var balance = Math.Max(0, total - paid);
 
         return new OrderDto(
-            o.Id,
+            o.Id.ToString(),
             o.Number,
-            o.CreatedAt,
+            o.CreatedAt.ToString("o"),
             o.Customer,
             o.Phone,
             o.Email,
@@ -498,7 +514,7 @@ public class OrdersController : ControllerBase
             o.Priority,
             o.Discount,
             o.Shipping,
-            o.HasCard,
+            !string.IsNullOrWhiteSpace(o.CardMessage),
             o.CardMessage,
             o.Notes,
             o.Status,
@@ -512,8 +528,8 @@ public class OrdersController : ControllerBase
             paid,
             balance,
             o.Items.Select(i => new OrderItemDto(
-                i.Id,
-                i.ProductId,
+                i.Id.ToString(),
+                i.ProductId.ToString(),
                 i.Name,
                 i.Quantity,
                 i.Price,

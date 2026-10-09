@@ -14,15 +14,21 @@ public class Material
 
 public class Product
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
+    public string NameEn { get; set; } = string.Empty;
     public string Category { get; set; } = string.Empty;
     public decimal Price { get; set; }
     public decimal Labor { get; set; }
     public string Image { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+    public string DescriptionEn { get; set; } = string.Empty;
+    public bool Featured { get; set; } = false;
     public bool IsActive { get; set; } = true;
+    public string OccasionEs { get; set; } = "[]";
+    public string OccasionEn { get; set; } = "[]";
     public string? Sku { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public ICollection<ProductRecipe> Recipe { get; set; } = new List<ProductRecipe>();
 }
@@ -30,7 +36,7 @@ public class Product
 public class ProductRecipe
 {
     public int Id { get; set; }
-    public string ProductId { get; set; } = string.Empty;
+    public int ProductId { get; set; }
     public Product? Product { get; set; }
     public string MaterialId { get; set; } = string.Empty;
     public Material? Material { get; set; }
@@ -40,9 +46,9 @@ public class ProductRecipe
 
 public class Order
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string Number { get; set; } = string.Empty;
-    public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("o");
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public string Customer { get; set; } = string.Empty;
     public string Phone { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
@@ -57,8 +63,11 @@ public class Order
     public decimal Discount { get; set; }
     public decimal Shipping { get; set; }
     public bool HasCard { get; set; }
+    public string CardStyle { get; set; } = "Clásica Floral";
+    public string CardSender { get; set; } = string.Empty;
     public string CardMessage { get; set; } = string.Empty;
     public string Notes { get; set; } = string.Empty;
+    public decimal TotalAmount { get; set; }
     public string Status { get; set; } = "recibido"; // recibido, confirmado, preparacion, listo, camino, entregado, cancelado
     public bool Consumed { get; set; }
     public bool IsDirectSale { get; set; } = false;
@@ -74,13 +83,14 @@ public class Order
 
 public class OrderItem
 {
-    public string Id { get; set; } = string.Empty;
-    public string OrderId { get; set; } = string.Empty;
+    public int Id { get; set; }
+    public int OrderId { get; set; }
     public Order? Order { get; set; }
-    public string ProductId { get; set; } = string.Empty;
+    public int ProductId { get; set; }
     public string Name { get; set; } = string.Empty;
     public int Quantity { get; set; }
     public decimal Price { get; set; }
+    public decimal TotalPrice { get; set; }
     public decimal Labor { get; set; }
     public string Notes { get; set; } = string.Empty;
     public string RecipeJson { get; set; } = "[]";
@@ -89,7 +99,7 @@ public class OrderItem
 public class Payment
 {
     public string Id { get; set; } = string.Empty;
-    public string OrderId { get; set; } = string.Empty;
+    public int OrderId { get; set; }
     public Order? Order { get; set; }
     public decimal Amount { get; set; }
     public string Method { get; set; } = "Efectivo";
@@ -100,7 +110,7 @@ public class Payment
 public class OrderHistory
 {
     public int Id { get; set; }
-    public string OrderId { get; set; } = string.Empty;
+    public int OrderId { get; set; }
     public Order? Order { get; set; }
     public string Date { get; set; } = DateTime.UtcNow.ToString("o");
     public string Title { get; set; } = string.Empty;
@@ -117,7 +127,7 @@ public class StockMovement
     public decimal Cost { get; set; }
     public string Date { get; set; } = DateTime.UtcNow.ToString("o");
     public string Reason { get; set; } = string.Empty;
-    public string? OrderId { get; set; }
+    public int? OrderId { get; set; }
 }
 
 public class Expense
