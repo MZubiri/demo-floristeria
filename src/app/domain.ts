@@ -12,16 +12,23 @@ export interface Product { id:string; name:string; category:string; price:number
 export interface Line { id:string; productId:string; name:string; quantity:number; price:number; labor:number; recipe:Ingredient[]; notes:string }
 export interface Payment { id:string; amount:number; method:string; date:string; reference:string }
 export interface History { date:string; title:string; note:string }
+export interface User { id:number; name:string; email:string; phone:string; roleId:number; roleName:string; isActive:boolean; createdAt:string }
+export interface Role { id:number; name:string; description:string; permissions:string[] }
+export interface Attendance { id:number; userId:number; userName:string; userRole:string; date:string; clockIn?:string; clockOut?:string; status:string; notes?:string }
+
 export interface Order {
  id:string; number:string; createdAt:string; customer:string; phone:string; email:string;
  recipient:string; recipientPhone:string; address:string; area:string; deliveryDate:string; time:string;
  deliveryMethod:string; priority:string; items:Line[]; discount:number; shipping:number;
  hasCard:boolean; cardMessage:string; notes:string; status:OrderStatus; payments:Payment[];
- history:History[]; consumed:boolean; deliveredAt?:string; receivedBy?:string; deliveryNote?:string;
+ history:History[]; consumed:boolean; isDirectSale?:boolean; deliveredAt?:string; receivedBy?:string; deliveryNote?:string;
 }
 export interface Movement { id:string; materialId:string; type:'entrada'|'consumo'|'merma'; quantity:number; cost:number; date:string; reason:string; orderId?:string }
 export interface Expense { id:string; category:string; description:string; amount:number; date:string; method:string }
-export interface State { version:1; orders:Order[]; materials:Material[]; products:Product[]; movements:Movement[]; expenses:Expense[]; business:string }
+export interface State {
+ version:1; orders:Order[]; materials:Material[]; products:Product[]; movements:Movement[]; expenses:Expense[]; business:string;
+ users?:User[]; roles?:Role[]; attendances?:Attendance[];
+}
 export function uid():string { return crypto.randomUUID(); }
 export function dayKey(date=new Date()):string {
  return date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-'+String(date.getDate()).padStart(2,'0');
@@ -159,3 +166,279 @@ export function csvCell(value:unknown):string {
  let v=String(value??''); if(/^[=+\-@\t\r]/.test(v)) v="'"+v;
  return '"'+v.replace(/"/g,'""')+'"';
 }
+
+export function directSale(
+ state: State,
+ data: {
+  customer?: string;
+  phone?: string;
+  items: { product: Product; quantity: number; price: number }[];
+  paymentMethod: string;
+  discount?: number;
+  reference?: string;
+  notes?: string;
+ }
+): { next: State; order: Order } {
+ if (!data.items?.length) throw new Error('Agrega al menos un producto a la venta directa.');
+ const next = structuredClone(state);
+ const max = next.orders.reduce((n, o) => Math.max(n, Number(o.number.replace(/\D/g, '')) || 0), 1000);
+ const orderId = uid();
+ const now = new Date().toISOString();
+ const today = dayKey();
+ const timeNow = new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false });
+ const customerName = data.customer?.trim() || 'Cliente Mostrador';
+ const customerPhone = data.phone?.trim() || 'Mostrador';
+ const discount = Math.max(0, Number(data.discount) || 0);
+
+ const lines: Line[] = data.items.map(it => {
+  if (it.quantity <= 0) throw new Error('La cantidad debe ser mayor a 0');
+  return {
+   id: uid(),
+   productId: it.product.id,
+   name: it.product.name,
+   quantity: Math.round(it.quantity),
+   price: it.price,
+   labor: it.product.labor,
+   notes: 'Venta directa mostrador',
+   recipe: it.product.recipe.map(r => ({ ...r, unitCost: next.materials.find(m => m.id === r.materialId)?.cost || r.unitCost }))
+  };
+ });
+
+ const subtotal = lines.reduce((acc, l) => acc + l.price * l.quantity, 0);
+ if (discount > subtotal) throw new Error('El descuento no puede superar el total.');
+ const grandTotal = Math.max(0, subtotal - discount);
+
+ // Descontar materiales de inventario inmediatamente
+ for (const line of lines) {
+  for (const r of line.recipe) {
+   const m = next.materials.find(mat => mat.id === r.materialId);
+   if (m) {
+    const consumeQty = Math.round(r.quantity * line.quantity * 1000) / 1000;
+    m.stock = Math.max(0, Math.round((m.stock - consumeQty) * 1000) / 1000);
+    next.movements.unshift({
+     id: uid(),
+     materialId: m.id,
+     type: 'consumo',
+     quantity: consumeQty,
+     cost: m.cost,
+     date: now,
+     reason: `Venta mostrador FL-${max + 1}`,
+     orderId
+    });
+   }
+  }
+ }
+
+ const newOrder: Order = {
+  id: orderId,
+  number: `POS-${max + 1}`,
+  createdAt: now,
+  customer: customerName,
+  phone: customerPhone,
+  email: '',
+  recipient: customerName,
+  recipientPhone: customerPhone,
+  address: 'Venta presencial en tienda física',
+  area: 'Mostrador',
+  deliveryDate: today,
+  time: timeNow,
+  deliveryMethod: 'Venta en tienda',
+  priority: 'Inmediata',
+  items: lines,
+  discount,
+  shipping: 0,
+  hasCard: false,
+  cardMessage: '',
+  notes: data.notes || 'Venta directa en mostrador',
+  status: 'entregado',
+  payments: [
+   {
+    id: uid(),
+    amount: grandTotal,
+    method: data.paymentMethod || 'Efectivo',
+    reference: data.reference || 'Venta en tienda',
+    date: now
+   }
+  ],
+  history: [
+   { date: now, title: 'Venta directa en local', note: `Cobrado ${grandTotal} COP con ${data.paymentMethod}` },
+   { date: now, title: 'Entregado en mostrador', note: customerName }
+  ],
+  consumed: true,
+  isDirectSale: true,
+  deliveredAt: now,
+  receivedBy: customerName,
+  deliveryNote: 'Entregado inmediatamente'
+ };
+
+ next.orders.unshift(newOrder);
+ return { next, order: newOrder };
+}
+
+export function markAttendance(
+ state: State,
+ record: { userId: number; date: string; clockIn?: string; clockOut?: string; status: string; notes?: string }
+): State {
+ const next = structuredClone(state);
+ if (!next.attendances) next.attendances = [];
+ const user = next.users?.find(u => u.id === record.userId);
+ const existingIndex = next.attendances.findIndex(a => a.userId === record.userId && a.date === record.date);
+
+ const updated: Attendance = {
+  id: existingIndex >= 0 ? next.attendances[existingIndex].id : Date.now(),
+  userId: record.userId,
+  userName: user?.name || 'Colaborador',
+  userRole: user?.roleName || 'Colaborador',
+  date: record.date,
+  clockIn: record.clockIn,
+  clockOut: record.clockOut,
+  status: record.status || 'Presente',
+  notes: record.notes || ''
+ };
+
+ if (existingIndex >= 0) {
+  next.attendances[existingIndex] = updated;
+ } else {
+  next.attendances.unshift(updated);
+ }
+ return next;
+}
+
+export function saveUser(
+ state: State,
+ user: { id?: number; name: string; email: string; phone?: string; roleId: number; roleName?: string; isActive?: boolean; createdAt?: string }
+): State {
+ const next = structuredClone(state);
+ if (!next.users) next.users = [];
+ if (!next.roles) next.roles = [];
+
+ const role = next.roles.find(r => r.id === user.roleId);
+ const roleName = role ? role.name : 'Colaborador';
+
+ if (user.id && user.id > 0) {
+  const index = next.users.findIndex(u => u.id === user.id);
+  if (index >= 0) {
+   next.users[index] = { ...next.users[index], ...user, id: user.id, roleName };
+   return next;
+  }
+ }
+
+ const newId = next.users.reduce((max, u) => Math.max(max, u.id), 0) + 1;
+ next.users.push({
+  id: newId,
+  name: user.name.trim(),
+  email: user.email.trim(),
+  phone: user.phone?.trim() || '',
+  roleId: user.roleId,
+  roleName,
+  isActive: user.isActive ?? true,
+  createdAt: user.createdAt || new Date().toISOString()
+ });
+ return next;
+}
+
+export function toggleUserStatus(state: State, userId: number): State {
+ const next = structuredClone(state);
+ if (!next.users) return next;
+ const u = next.users.find(x => x.id === userId);
+ if (u) u.isActive = !u.isActive;
+ return next;
+}
+
+export function deleteUser(state: State, userId: number): State {
+ const next = structuredClone(state);
+ if (!next.users) return next;
+ next.users = next.users.filter(u => u.id !== userId);
+ return next;
+}
+
+export function saveRole(state: State, role: Omit<Role, 'id'> & { id?: number }): State {
+ const next = structuredClone(state);
+ if (!next.roles) next.roles = [];
+ if (role.id && role.id > 0) {
+  const idx = next.roles.findIndex(r => r.id === role.id);
+  if (idx >= 0) {
+   next.roles[idx] = { ...next.roles[idx], ...role, id: role.id };
+   return next;
+  }
+ }
+ const newId = next.roles.reduce((max, r) => Math.max(max, r.id), 0) + 1;
+ next.roles.push({
+  id: newId,
+  name: role.name.trim(),
+  description: role.description.trim(),
+  permissions: role.permissions || []
+ });
+ return next;
+}
+
+/**
+ * Genera un archivo Excel XML (.xls/.xlsx) profesional compatible con Microsoft Excel.
+ */
+export function buildExcelXml(sheets: { name: string; headers: string[]; rows: (string | number | boolean)[][] }[]): string {
+ let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+ <Styles>
+  <Style ss:ID="Default" ss:Name="Normal">
+   <Alignment ss:Vertical="Center"/>
+   <Font ss:FontName="Segoe UI" ss:Size="10" ss:Color="#1F2937"/>
+  </Style>
+  <Style ss:ID="Header">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1B3317"/>
+   </Borders>
+   <Font ss:FontName="Segoe UI" ss:Size="11" ss:Bold="1" ss:Color="#FFFFFF"/>
+   <Interior ss:Color="#2E4F28" ss:Pattern="Solid"/>
+  </Style>
+  <Style ss:ID="Currency">
+   <NumberFormat ss:Format="$ #,##0"/>
+  </Style>
+  <Style ss:ID="Bold">
+   <Font ss:FontName="Segoe UI" ss:Size="10" ss:Bold="1"/>
+  </Style>
+ </Styles>\n`;
+
+ for (const sheet of sheets) {
+  xml += ` <Worksheet ss:Name="${sheet.name.replace(/[:\\/?*\[\]]/g, '')}">\n  <Table ss:DefaultRowHeight="20">\n`;
+  xml += '   <Row ss:Height="24">\n';
+  for (const h of sheet.headers) {
+   xml += `    <Cell ss:StyleID="Header"><Data ss:Type="String">${escapeXml(String(h))}</Data></Cell>\n`;
+  }
+  xml += '   </Row>\n';
+
+  for (const row of sheet.rows) {
+   xml += '   <Row>\n';
+   for (const cell of row) {
+    if (typeof cell === 'number') {
+     xml += `    <Cell ss:StyleID="${cell > 500 ? 'Currency' : 'Default'}"><Data ss:Type="Number">${cell}</Data></Cell>\n`;
+    } else {
+     xml += `    <Cell><Data ss:Type="String">${escapeXml(String(cell ?? ''))}</Data></Cell>\n`;
+    }
+   }
+   xml += '   </Row>\n';
+  }
+  xml += '  </Table>\n </Worksheet>\n';
+ }
+
+ xml += '</Workbook>';
+ return xml;
+}
+
+function escapeXml(unsafe: string): string {
+ return unsafe.replace(/[<>&'"]/g, (c) => {
+  switch (c) {
+   case '<': return '&lt;';
+   case '>': return '&gt;';
+   case '&': return '&amp;';
+   case '\'': return '&apos;';
+   case '"': return '&quot;';
+   default: return c;
+  }
+ });
+}
+

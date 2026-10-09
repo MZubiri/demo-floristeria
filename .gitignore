@@ -8,3 +8,19 @@ test-results/
 .env.*
 !.env.example
 .DS_Store
+
+# .NET Core
+bin/
+obj/
+[Bb]in/
+[Oo]bj/
+*.user
+*.suo
+.vs/
+*.sln.docstates
+
+# Database & local data
+mysql_data/
+*.db
+*.sqlite
+

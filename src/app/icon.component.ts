@@ -29,6 +29,9 @@ const paths:Record<string,string>={
  menu:'M4 6h16M4 12h16M4 18h16',spark:'m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3Z',
  phone:'M5 3h4l2 5-3 2c1 3 3 5 6 6l2-3 5 2v4c-8 5-22-9-16-16Z',
  mail:'M3 5h18v14H3ZM3 5l9 7 9-7', logout:'M9 3H3v18h6M10 12h11M16 7l5 5-5 5',
+ excel:'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM14 2v6h6M8 13l3 4M11 13l-3 4',
+ pos:'M4 4h16v4H4zm0 6h16v10H4zm4 4h2m4 0h2m-6 3h2m4 0h2',
+ clipboard:'M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 2h6a1 1 0 0 1 1 1v2H8V3a1 1 0 0 1 1-1z'
 };
 @Component({selector:'app-icon',standalone:true,template:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path [attr.d]="path" /></svg>`})
 export class IconComponent { @Input() name='flower'; get path(){return paths[this.name]||paths['flower'];} }

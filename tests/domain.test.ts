@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { blankOrder, saveOrder, transition, moveStock, addPayment, reserved, available, total, balance, orderCost, summary, csvCell, dayKey, type State } from '../src/app/domain.ts';
+import { blankOrder, saveOrder, transition, moveStock, addPayment, reserved, available, total, balance, orderCost, summary, csvCell, dayKey, directSale, markAttendance, saveUser, toggleUserStatus, buildExcelXml, type State } from '../src/app/domain.ts';
 function base():State{return {version:1,business:'Test',materials:[{id:'rose',name:'Rosa',category:'Flores',unit:'tallos',stock:30,minimum:5,cost:3000,supplier:'Test'}],products:[],orders:[],expenses:[],movements:[]};}
 function order(s:State){const o=blankOrder(s);Object.assign(o,{customer:'Cliente prueba',phone:'3001234567',recipient:'Destinataria',address:'Calle de ejemplo',shipping:12000});o.items=[{id:'line',productId:'rose12',name:'12 rosas',quantity:1,price:180000,labor:18000,recipe:[{materialId:'rose',quantity:12,unitCost:3000}],notes:''}];return o;}
 test('total, historical cost and balance are independent of current purchase cost',()=>{
@@ -63,3 +63,53 @@ test('fractional payments and malformed emails are rejected',()=>{
  o.email='invalid';assert.throws(()=>saveOrder(s,o),/correo/);
  o.email='valid@example.com';assert.doesNotThrow(()=>saveOrder(s,o));
 });
+
+test('direct sale in store consumes inventory, pays in full and records order',()=>{
+ const s=base();
+ const prod={id:'p1',name:'Rosas',category:'Ramos',price:50000,labor:5000,image:'',description:'',recipe:[{materialId:'rose',quantity:5,unitCost:3000}]};
+ s.products=[prod];
+ const {next, order: directOrder}=directSale(s,{
+  customer:'Cliente en Mostrador',
+  phone:'3001234567',
+  items:[{product:prod,quantity:2,price:50000}],
+  paymentMethod:'Efectivo',
+  discount:5000,
+  notes:'Venta directa'
+ });
+ assert.equal(directOrder.isDirectSale,true);
+ assert.equal(directOrder.status,'entregado');
+ assert.equal(directOrder.payments.length,1);
+ assert.equal(directOrder.payments[0].amount,95000); // 100000 - 5000 discount
+ assert.equal(next.materials[0].stock,20); // 30 - 2 * 5 = 20 consumed
+ assert.equal(next.movements[0].type,'consumo');
+ assert.equal(next.orders[0].id,directOrder.id);
+});
+
+test('markAttendance records and updates employee attendance',()=>{
+ const s=base();
+ s.users=[{id:10,name:'Juan Perez',email:'juan@test.com',phone:'123',roleId:2,roleName:'Cajero',isActive:true,createdAt:'2026-01-01'}];
+ const s1=markAttendance(s,{userId:10,date:'2026-10-09',clockIn:'08:00',status:'Presente',notes:'Puntual'});
+ assert.equal(s1.attendances?.length,1);
+ assert.equal(s1.attendances?.[0].status,'Presente');
+ const s2=markAttendance(s1,{userId:10,date:'2026-10-09',clockIn:'08:00',clockOut:'17:00',status:'Presente',notes:'Jornada completa'});
+ assert.equal(s2.attendances?.length,1);
+ assert.equal(s2.attendances?.[0].clockOut,'17:00');
+});
+
+test('saveUser and toggleUserStatus manage users accurately',()=>{
+ let s=base();
+ s.roles=[{id:1,name:'Admin',description:'Full',permissions:['*']}];
+ s=saveUser(s,{name:'Maria Diaz',email:'maria@test.com',phone:'555',roleId:1,roleName:'Admin',isActive:true,createdAt:'2026-01-01'});
+ assert.equal(s.users?.length,1);
+ assert.equal(s.users?.[0].name,'Maria Diaz');
+ s=toggleUserStatus(s,s.users![0].id);
+ assert.equal(s.users?.[0].isActive,false);
+});
+
+test('buildExcelXml produces valid XML spreadsheet markup with styles and headers',()=>{
+ const xml=buildExcelXml([{name:'TestSheet',headers:['Nombre','Total'],rows:[['Rosas',120000]]}]);
+ assert.match(xml,/<Workbook/);
+ assert.match(xml,/<Worksheet ss:Name="TestSheet">/);
+ assert.match(xml,/<Data ss:Type="Number">120000<\/Data>/);
+});
+

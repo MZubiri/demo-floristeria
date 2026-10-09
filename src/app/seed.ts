@@ -62,5 +62,29 @@ export function seed():State {
  s.materials.find(m=>m.id==='blanca')!.stock=24;
  s.movements.unshift({id:'w1',materialId:'rosa',type:'merma',quantity:5,cost:3000,date:new Date(offsetDay(-1)+'T18:00:00').toISOString(),reason:'Deterioro · registro de ejemplo'});
  s.materials.find(m=>m.id==='rosa')!.stock-=5;
+
+ s.roles=[
+  {id:1,name:'Administrador',description:'Control total de módulos y configuraciones',permissions:['*']},
+  {id:2,name:'Vendedor / Cajero',description:'Punto de venta directo en local, pedidos y cobros',permissions:['orders','sales','pos','clients']},
+  {id:3,name:'Florista / Armador',description:'Elaboración floral, preparación y consumo de inventario',permissions:['orders','inventory','catalog','attendance']},
+  {id:4,name:'Repartidor',description:'Entregas en ruta, recepción y confirmación',permissions:['deliveries','orders','attendance']}
+ ];
+ s.users=[
+  {id:1,name:'Elena Castro (Admin)',email:'admin@floristeria.com',phone:'+57 300 123 4567',roleId:1,roleName:'Administrador',isActive:true,createdAt:offsetDay(-30)},
+  {id:2,name:'Carlos Mendoza (Caja)',email:'carlos@floristeria.com',phone:'+57 311 234 5678',roleId:2,roleName:'Vendedor / Cajero',isActive:true,createdAt:offsetDay(-20)},
+  {id:3,name:'Valentina Rojas (Florista)',email:'valentina@floristeria.com',phone:'+57 320 345 6789',roleId:3,roleName:'Florista / Armador',isActive:true,createdAt:offsetDay(-15)},
+  {id:4,name:'Mateo Silva (Repartidor)',email:'mateo@floristeria.com',phone:'+57 315 456 7890',roleId:4,roleName:'Repartidor',isActive:true,createdAt:offsetDay(-10)}
+ ];
+ s.attendances=[
+  {id:1,userId:1,userName:'Elena Castro (Admin)',userRole:'Administrador',date:offsetDay(0),clockIn:'07:45',status:'Presente',notes:'Apertura de taller y administración'},
+  {id:2,userId:2,userName:'Carlos Mendoza (Caja)',userRole:'Vendedor / Cajero',date:offsetDay(0),clockIn:'07:55',status:'Presente',notes:'Apertura de caja y mostrador'},
+  {id:3,userId:3,userName:'Valentina Rojas (Florista)',userRole:'Florista / Armador',date:offsetDay(0),clockIn:'08:00',status:'Presente',notes:'Mesa de trabajo y pedidos del día'},
+  {id:4,userId:4,userName:'Mateo Silva (Repartidor)',userRole:'Repartidor',date:offsetDay(0),clockIn:'08:25',status:'Retardo',notes:'Demora por tráfico matutino'},
+  {id:5,userId:1,userName:'Elena Castro (Admin)',userRole:'Administrador',date:offsetDay(-1),clockIn:'08:00',clockOut:'17:30',status:'Presente',notes:'Jornada normal'},
+  {id:6,userId:2,userName:'Carlos Mendoza (Caja)',userRole:'Vendedor / Cajero',date:offsetDay(-1),clockIn:'08:00',clockOut:'17:00',status:'Presente',notes:'Jornada normal'},
+  {id:7,userId:3,userName:'Valentina Rojas (Florista)',userRole:'Florista / Armador',date:offsetDay(-1),clockIn:'08:00',clockOut:'17:00',status:'Presente',notes:'Jornada normal'},
+  {id:8,userId:4,userName:'Mateo Silva (Repartidor)',userRole:'Repartidor',date:offsetDay(-1),clockIn:'08:00',clockOut:'17:00',status:'Presente',notes:'Rutas completas'}
+ ];
+
  return s;
 }

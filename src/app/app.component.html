@@ -9,7 +9,7 @@
  <div class="sidebar-bottom"><div class="demo-tag"><span></span>ESPACIO DE DEMOSTRACIÓN</div><p>Grandes detalles.<br>Todo bajo control.</p><small>Diseñado por MolinazDev</small></div>
  </aside>
  <div class="main-wrap">
- <header class="topbar"><div class="breadcrumbs"><span class="mobile-brand">floré</span><span class="desktop-crumb">Mi floristería</span><app-icon name="chevron"/><strong>{{pageTitle}}</strong></div><div class="topbar-actions"><span class="local-status"><span class="live-dot"></span>Demo local</span><button class="icon-button" aria-label="Ver entregas de hoy" (click)="go('agenda');resetCalendar()"><app-icon name="calendar"/></button><button class="user-button" aria-label="Configuración de la demo" (click)="go('ajustes')">AD</button></div></header>
+ <header class="topbar"><div class="breadcrumbs"><span class="mobile-brand">floré</span><span class="desktop-crumb">Mi floristería</span><app-icon name="chevron"/><strong>{{pageTitle}}</strong></div><div class="topbar-actions"><button class="button primary small" style="background:#2e4f28;color:#fff;" (click)="openPos()" aria-label="Registrar venta directa en local"><app-icon name="pos"/>Venta Local</button><span class="local-status"><span class="live-dot"></span>Demo local</span><button class="icon-button" aria-label="Ver entregas de hoy" (click)="go('agenda');resetCalendar()"><app-icon name="calendar"/></button><button class="user-button" aria-label="Configuración de la demo" (click)="go('ajustes')">AD</button></div></header>
  <main id="main-content">
  @if(store.warning()){<p class="notice" role="alert">{{store.warning()}}</p>}
  <div class="demo-banner"><app-icon name="info"/><span>Demo interactiva · Datos ficticios. Los cambios y fotos se guardan <strong>solo en este navegador.</strong></span><button type="button" (click)="go('ajustes')" aria-label="Ver límites de la demo">Ver detalles<app-icon name="arrow"/></button></div>
@@ -39,12 +39,12 @@
  }
 
  @if(view()==='pedidos'){
- <section class="page-heading"><div><div class="eyebrow">CADA PEDIDO TIENE UNA HISTORIA</div><h1>Pedidos</h1><p>Del primer mensaje a la última sonrisa.</p></div><div class="button-row"><button class="button secondary" (click)="exportOrders()"><app-icon name="download"/>Exportar CSV</button><button class="button primary" (click)="newOrder()"><app-icon name="plus"/>Nuevo pedido</button></div></section>
+ <section class="page-heading"><div><div class="eyebrow">CADA PEDIDO TIENE UNA HISTORIA</div><h1>Pedidos</h1><p>Del primer mensaje a la última sonrisa.</p></div><div class="button-row"><button class="button secondary" (click)="exportOrdersExcel()"><app-icon name="excel"/>Exportar Excel</button><button class="button secondary" (click)="exportOrders()"><app-icon name="download"/>CSV</button><button class="button secondary" (click)="openPos()"><app-icon name="pos"/>Venta Local</button><button class="button primary" (click)="newOrder()"><app-icon name="plus"/>Nuevo pedido</button></div></section>
  <div class="filter-tabs"><button [class.active]="dateFilter==='all'" (click)="dateFilter='all'">Todos <span>{{state().orders.length}}</span></button><button [class.active]="dateFilter==='today'" (click)="dateFilter='today'">Para hoy</button><button [class.active]="dateFilter==='tomorrow'" (click)="dateFilter='tomorrow'">Mañana</button><button [class.active]="dateFilter==='late'" (click)="dateFilter='late'">Atrasados</button></div>
  <section class="panel">
  <div class="toolbar"><label class="search-field"><app-icon name="search"/><input [(ngModel)]="query" placeholder="Buscar cliente, teléfono o pedido…" aria-label="Buscar pedidos"></label><select [(ngModel)]="statusFilter" aria-label="Filtrar por estado"><option value="">Todos los estados</option>@for(s of statuses;track s.value){<option [value]="s.value">{{s.label}}</option>}</select><label class="checkbox-line"><input type="checkbox" [(ngModel)]="pendingOnly">Con saldo pendiente</label></div>
  <div class="table-scroll order-desktop"><table><thead><tr><th>Pedido / arreglo</th><th>Cliente y destinatario</th><th>Entrega</th><th>Estado</th><th>Total / saldo</th><th><span class="sr-only">Abrir</span></th></tr></thead><tbody>
- @for(o of filteredOrders;track o.id){<tr><td><button class="product-link" (click)="open(o)" [attr.aria-label]="'Ver pedido '+o.number"><img [src]="image(o)" alt="" loading="lazy"><span><strong>{{o.number}}</strong><small>{{o.items[0].name}}@if(o.items.length>1){ +{{o.items.length-1}}}</small></span></button></td><td><strong>{{o.customer}}</strong><small>Para {{o.recipient}}</small></td><td><strong>{{shortDate(o.deliveryDate)}} · {{o.time}}</strong><small>{{o.area || o.deliveryMethod}} @if(o.priority==='Alta'){<span class="priority-dot">· Prioridad alta</span>}</small></td><td><span class="badge" [class]="color(o.status)">{{label(o.status)}}</span></td><td><strong>{{money(total(o))}}</strong><small [class.positive]="balance(o)===0">{{balance(o)>0?'Saldo '+money(balance(o)):'Pagado'}}</small></td><td><button class="icon-button" (click)="open(o)" [attr.aria-label]="'Detalle de '+o.number"><app-icon name="chevron"/></button></td></tr>}
+ @for(o of filteredOrders;track o.id){<tr><td><button class="product-link" (click)="open(o)" [attr.aria-label]="'Ver pedido '+o.number"><img [src]="image(o)" alt="" loading="lazy"><span><strong>{{o.number}}@if(o.isDirectSale){ <span class="badge neutral" style="font-size:8px;">Local</span>}</strong><small>{{o.items[0].name}}@if(o.items.length>1){ +{{o.items.length-1}}}</small></span></button></td><td><strong>{{o.customer}}</strong><small>Para {{o.recipient}}</small></td><td><strong>{{shortDate(o.deliveryDate)}} · {{o.time}}</strong><small>{{o.area || o.deliveryMethod}} @if(o.priority==='Alta'){<span class="priority-dot">· Prioridad alta</span>}</small></td><td><span class="badge" [class]="color(o.status)">{{label(o.status)}}</span></td><td><strong>{{money(total(o))}}</strong><small [class.positive]="balance(o)===0">{{balance(o)>0?'Saldo '+money(balance(o)):'Pagado'}}</small></td><td><button class="icon-button" (click)="open(o)" [attr.aria-label]="'Detalle de '+o.number"><app-icon name="chevron"/></button></td></tr>}
  </tbody></table></div>
  <div class="order-mobile">@for(o of filteredOrders;track o.id){<button class="mobile-order" (click)="open(o)" [attr.aria-label]="'Ver pedido '+o.number"><div class="mobile-order-top"><span class="eyebrow">{{o.number}}</span><span class="badge" [class]="color(o.status)">{{label(o.status)}}</span></div><div class="product-link"><img [src]="image(o)" alt=""><span><strong>{{o.items[0].name}}</strong><small>{{o.customer}} → {{o.recipient}}</small></span></div><div class="mobile-order-bottom"><span>{{shortDate(o.deliveryDate)}} · {{o.time}}</span><strong>{{money(total(o))}}</strong></div></button>}</div>
  @if(!filteredOrders.length){<div class="empty"><app-icon name="search"/><h3>No encontramos esos pedidos</h3><p>Prueba otro nombre o cambia los filtros.</p><button class="button secondary" (click)="query='';statusFilter='';dateFilter='all';pendingOnly=false">Limpiar filtros</button></div>}
@@ -68,7 +68,7 @@
  }
 
  @if(view()==='inventario'){
- <section class="page-heading"><div><div class="eyebrow">TODO EMPIEZA CON UNA FLOR</div><h1>Inventario y merma</h1><p>Cuida tus materiales. Cada tallo cuenta.</p></div><div class="button-row"><button class="button secondary" (click)="openStock('merma')"><app-icon name="leaf"/>Registrar merma</button><button class="button primary" (click)="openStock('entrada')"><app-icon name="plus"/>Entrada de materiales</button></div></section>
+ <section class="page-heading"><div><div class="eyebrow">TODO EMPIEZA CON UNA FLOR</div><h1>Inventario y merma</h1><p>Cuida tus materiales. Cada tallo cuenta.</p></div><div class="button-row"><button class="button secondary" (click)="exportInventoryExcel()"><app-icon name="excel"/>Exportar Excel</button><button class="button secondary" (click)="openStock('merma')"><app-icon name="leaf"/>Registrar merma</button><button class="button primary" (click)="openStock('entrada')"><app-icon name="plus"/>Entrada de materiales</button></div></section>
  <div class="metrics three-metrics"><article class="metric"><span>Valor de existencias</span><strong>{{money(inventoryValue)}}</strong><small>Costo de materiales, no precio de venta</small></article><article class="metric"><span>Materiales bajo mínimo</span><strong>{{lowStock().length}}</strong><small>Considerando las reservas de pedidos</small></article><article class="metric"><span>Merma · últimos 7 días</span><strong>{{money(week().waste)}}</strong><small>Pérdidas registradas, sin doble descuento</small></article></div>
  <div class="filter-tabs"><button [class.active]="stockTab==='materiales'" (click)="stockTab='materiales'">Materiales</button><button [class.active]="stockTab==='movimientos'" (click)="stockTab='movimientos'">Historial de movimientos</button></div>
  <section class="panel">@if(stockTab==='materiales'){
@@ -77,6 +77,83 @@
  @if(!filteredMaterials.length){<div class="empty compact"><p>No hay materiales con esos filtros.</p></div>}
  <div class="panel-footer">Disponible = existencias − reservas. Los materiales se consumen al iniciar la preparación.</div>
  }@else{<div class="section-heading"><h2>Trazabilidad de materiales</h2><span class="badge neutral">{{state().movements.length}} movimientos</span></div><div class="table-scroll"><table><thead><tr><th>Fecha</th><th>Material</th><th>Movimiento</th><th>Cantidad</th><th>Valor</th><th>Motivo</th></tr></thead><tbody>@for(m of state().movements;track m.id){<tr><td>{{dateTime(m.date)}}</td><td><strong>{{materialName(m.materialId)}}</strong></td><td><span class="badge" [class]="m.type==='merma'?'rose':m.type==='entrada'?'sage':'neutral'">{{m.type}}</span></td><td>{{m.type==='entrada'?'+':'−'}}{{number(m.quantity)}}</td><td>{{money(m.quantity*m.cost)}}</td><td>{{m.reason}}</td></tr>}</tbody></table></div>}</section>
+ }
+
+ @if(view()==='asistencia'){
+ <section class="page-heading">
+  <div><div class="eyebrow">CONTROL DE PERSONAL Y PUNTUALIDAD</div><h1>Pase de lista y asistencia</h1><p>Registro diario de asistencia, entradas, salidas y novedades del equipo.</p></div>
+  <div class="button-row"><button class="button secondary" (click)="exportAttendanceExcel()"><app-icon name="excel"/>Exportar Excel</button><button class="button primary" (click)="attendanceDate=today"><app-icon name="calendar"/>Hoy</button></div>
+ </section>
+ <div class="metrics">
+  <article class="metric"><div class="metric-top"><span>Plantilla activa</span><span class="metric-icon sage"><app-icon name="users"/></span></div><strong>{{attendanceStats.total}}</strong><small>Colaboradores registrados</small></article>
+  <article class="metric"><div class="metric-top"><span>Presentes hoy</span><span class="metric-icon sage"><app-icon name="check"/></span></div><strong class="positive">{{attendanceStats.present}}</strong><small class="positive">En jornada laboral</small></article>
+  <article class="metric"><div class="metric-top"><span>Retardos</span><span class="metric-icon peach"><app-icon name="clock"/></span></div><strong>{{attendanceStats.late}}</strong><small>Llegadas tarde</small></article>
+  <article class="metric"><div class="metric-top"><span>Faltas o permisos</span><span class="metric-icon rose"><app-icon name="alert"/></span></div><strong>{{attendanceStats.absent + attendanceStats.justified}}</strong><small>{{attendanceStats.justified}} justificados · {{attendanceStats.absent}} faltas</small></article>
+ </div>
+ <section class="panel">
+  <div class="section-heading"><div><h2>Pase de lista diario</h2><p>Marca la entrada, salida o estado del día con un clic.</p></div><div class="date-range"><label>Fecha de lista<input type="date" [(ngModel)]="attendanceDate"></label></div></div>
+  <div class="table-scroll"><table><thead><tr><th>Colaborador</th><th>Rol / Cargo</th><th>Entrada</th><th>Salida</th><th>Estado</th><th>Observaciones</th><th>Acciones de lista</th></tr></thead><tbody>
+  @for(item of dayAttendances;track item.user.id){
+   <tr>
+    <td><div class="product-link"><span class="workspace-avatar" style="width:34px;height:34px;font-size:13px;">{{initials(item.user.name)}}</span><span><strong>{{item.user.name}}</strong><small>{{item.user.email}}</small></span></div></td>
+    <td><span class="badge sage">{{item.user.roleName}}</span></td>
+    <td><strong>{{item.record.clockIn || '—'}}</strong></td>
+    <td><strong>{{item.record.clockOut || '—'}}</strong></td>
+    <td><span class="badge" [class]="item.record.status==='Presente'?'green':item.record.status==='Retardo'?'amber':item.record.status==='Falta'?'rose':'neutral'">{{item.record.status}}</span></td>
+    <td><small>{{item.record.notes || 'Sin observaciones'}}</small></td>
+    <td>
+     <div class="button-row">
+      <button class="button small secondary" (click)="quickClockIn(item.user.id)" title="Registrar hora de entrada actual"><app-icon name="clock"/>Entrada</button>
+      <button class="button small secondary" (click)="quickClockOut(item.user.id)" title="Registrar hora de salida actual"><app-icon name="check"/>Salida</button>
+      <button class="text-button small" (click)="quickMark(item.user.id,'Presente')">Presente</button>
+      <button class="text-button small" style="color:#b58a4a;" (click)="quickMark(item.user.id,'Retardo')">Retardo</button>
+      <button class="text-button small danger-text" (click)="quickMark(item.user.id,'Falta')">Falta</button>
+      <button class="text-button small" style="color:#597a9d;" (click)="quickMark(item.user.id,'Justificado')">Justificado</button>
+     </div>
+    </td>
+   </tr>
+  }
+  </tbody></table></div>
+  <div class="panel-footer">{{dayAttendances.length}} trabajadores en plantilla · Los cambios se actualizan automáticamente en el sistema</div>
+ </section>
+ }
+
+ @if(view()==='usuarios'){
+ <section class="page-heading">
+  <div><div class="eyebrow">EQUIPO HUMANO Y PERMISOS</div><h1>Usuarios y Roles</h1><p>Gestión completa de personal, accesos y cargos de la floristería.</p></div>
+  <div class="button-row"><button class="button secondary" (click)="openRoleModal()"><app-icon name="plus"/>Nuevo rol</button><button class="button primary" (click)="openUserModal()"><app-icon name="plus"/>Nuevo colaborador</button></div>
+ </section>
+ <div class="dashboard-top">
+  <section class="panel">
+   <div class="section-heading"><div><h2>Colaboradores</h2><p>{{filteredUsers.length}} usuarios registrados</p></div></div>
+   <div class="toolbar"><label class="search-field"><app-icon name="search"/><input [(ngModel)]="userSearch" placeholder="Buscar por nombre, correo o teléfono…" aria-label="Buscar colaboradores"></label></div>
+   <div class="table-scroll"><table><thead><tr><th>Colaborador</th><th>Teléfono</th><th>Rol</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
+   @for(u of filteredUsers;track u.id){
+    <tr>
+     <td><div class="product-link"><span class="workspace-avatar" style="width:34px;height:34px;font-size:13px;">{{initials(u.name)}}</span><span><strong>{{u.name}}</strong><small>{{u.email}}</small></span></div></td>
+     <td>{{u.phone || '—'}}</td>
+     <td><span class="badge sage">{{u.roleName}}</span></td>
+     <td><button class="badge" [class]="u.isActive?'green':'rose'" (click)="toggleUser(u.id)" style="border:0;cursor:pointer;" [title]="u.isActive?'Desactivar colaborador':'Activar colaborador'">{{u.isActive?'Activo':'Inactivo'}}</button></td>
+     <td>
+      <div class="button-row"><button class="button small secondary" (click)="openUserModal(u)"><app-icon name="edit"/>Editar</button><button class="text-button small danger-text" (click)="deleteUserClick(u.id)"><app-icon name="trash"/>Eliminar</button></div>
+     </td>
+    </tr>
+   }
+   </tbody></table></div>
+  </section>
+  <section class="panel">
+   <div class="section-heading"><div><h2>Roles y cargos</h2><p>Niveles de acceso</p></div><span class="badge neutral">{{roles.length}} roles</span></div>
+   <div style="display:flex;flex-direction:column;gap:14px;">
+    @for(r of roles;track r.id){
+     <div style="padding:16px;border:1px solid var(--line);border-radius:12px;background:#fcfcf9;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><strong style="font-size:13px;">{{r.name}}</strong><button class="text-button small" (click)="openRoleModal(r)"><app-icon name="edit"/>Editar</button></div>
+      <p style="font-size:11px;color:var(--muted);margin-bottom:8px;">{{r.description}}</p>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;">@for(p of r.permissions;track p){<span class="badge neutral" style="font-size:8px;">{{p}}</span>}</div>
+     </div>
+    }
+   </div>
+  </section>
+ </div>
  }
 
  @if(view()==='pagos'){
@@ -102,7 +179,7 @@
  }
 
  @if(view()==='informes'){
- <section class="page-heading"><div><div class="eyebrow">DECISIONES CON RAÍCES FIRMES</div><h1>Informes del negocio</h1><p>Ventas, costos y gastos: la historia completa.</p></div><div class="button-row no-print"><button class="button secondary" (click)="print()"><app-icon name="print"/>Imprimir / PDF</button><button class="button primary" (click)="exportReport()"><app-icon name="download"/>Exportar CSV</button></div></section>
+ <section class="page-heading"><div><div class="eyebrow">DECISIONES CON RAÍCES FIRMES</div><h1>Informes del negocio</h1><p>Ventas, costos y gastos: la historia completa.</p></div><div class="button-row no-print"><button class="button secondary" (click)="print()"><app-icon name="print"/>Imprimir / PDF</button><button class="button secondary" (click)="exportFinancialExcel()"><app-icon name="excel"/>Exportar Excel (.xlsx)</button><button class="button primary" (click)="exportReport()"><app-icon name="download"/>Exportar CSV</button></div></section>
  <div class="report-toolbar"><div class="date-range"><label>Desde<input type="date" [(ngModel)]="reportFrom"></label><label>Hasta<input type="date" [(ngModel)]="reportTo"></label></div><div class="button-row no-print"><button class="button secondary small" (click)="range(7)">7 días</button><button class="button secondary small" (click)="range(30)">30 días</button></div></div>
  @if(reportFrom>reportTo){<p class="error" role="alert">La fecha inicial debe ser anterior o igual a la final.</p>}
  <div class="metrics"><article class="metric"><span>Ventas entregadas</span><strong>{{money(report.revenue)}}</strong><small>{{report.sales}} pedidos entregados</small></article><article class="metric"><span>Costos de productos</span><strong>{{money(report.cost)}}</strong><small>Materiales y mano de obra guardados</small></article><article class="metric"><span>Gastos y pérdidas</span><strong>{{money(report.expenses+report.waste+report.canceledCost)}}</strong><small>Operación, merma y cancelaciones</small></article><article class="metric featured"><span>Utilidad operativa estimada</span><strong>{{money(report.profit)}}</strong><small>Indicador de gestión, no fiscal</small></article></div>
@@ -170,3 +247,108 @@
  <form (ngSubmit)="saveExpense()"><div class="modal-scroll">@if(error()){<p class="error" role="alert">{{error()}}</p>}<div class="form-grid"><label>Fecha *<input name="date" type="date" [(ngModel)]="expense.date" required></label><label>Categoría<select name="category" [(ngModel)]="expense.category">@for(c of expenseCategories;track c){<option>{{c}}</option>}</select></label><label class="span-2">Descripción *<input name="description" [(ngModel)]="expense.description" required maxlength="200" placeholder="Ej. Domicilios de la mañana"></label><label>Valor COP *<input name="amount" type="number" min="1" [(ngModel)]="expense.amount" required inputmode="numeric"></label><label>Método de pago<select name="method" [(ngModel)]="expense.method">@for(m of methods;track m){<option>{{m}}</option>}</select></label></div><p class="micro">Los pagos a proveedores por inventario se registran como entradas de materiales.</p></div><footer class="modal-footer"><button class="button secondary" type="button" (click)="expenseModal=false">Volver</button><button class="button primary" type="submit"><app-icon name="check"/>Guardar gasto</button></footer></form>
  </app-dialog>
 }
+
+@if(posModal){
+ <app-dialog title="Venta Directa en Local / Mostrador" [wide]="true" eyebrow="PUNTO DE VENTA RÁPIDO" (dismiss)="posModal=false;error.set('')">
+  <form (ngSubmit)="confirmPosSale()">
+   <div class="modal-scroll">
+    @if(error()){<p class="error" role="alert">{{error()}}</p>}
+    <p class="muted">Registra ventas presenciales al instante. Los materiales se descuentan del inventario y el pedido queda registrado y pagado.</p>
+    <div class="form-grid">
+     <label>Cliente / Comprador<input name="posCustomer" [(ngModel)]="posCustomer" placeholder="Ej. Cliente Mostrador" required></label>
+     <label>Teléfono (opcional)<input name="posPhone" [(ngModel)]="posPhone" placeholder="Ej. 300 123 4567"></label>
+    </div>
+    <div class="line-editor" style="background:#f9fbf8;margin-bottom:18px;">
+     <div class="line-editor-head"><strong>Seleccionar arreglo floral o producto</strong></div>
+     <div class="add-line">
+      <select [(ngModel)]="posSelectedProductId" name="posSelectProd">
+       @for(p of state().products; track p.id){
+        <option [value]="p.id">{{p.name}} · {{money(p.price)}}</option>
+       }
+      </select>
+      <button class="button secondary small" type="button" (click)="addPosSelected()"><app-icon name="plus"/>Agregar producto</button>
+     </div>
+    </div>
+    @if(posItems.length){
+     <div class="table-scroll" style="margin-bottom:18px;">
+      <table>
+       <thead>
+        <tr>
+         <th>Producto</th>
+         <th>Cantidad</th>
+         <th>Precio unitario</th>
+         <th>Subtotal</th>
+         <th></th>
+        </tr>
+       </thead>
+       <tbody>
+        @for(item of posItems; track $index){
+         <tr>
+          <td><strong>{{item.product.name}}</strong></td>
+          <td><input type="number" min="1" [(ngModel)]="item.quantity" [name]="'qty_'+$index" style="width:70px;min-height:36px;padding:6px;"></td>
+          <td>{{money(item.price)}}</td>
+          <td><strong>{{money(item.price * item.quantity)}}</strong></td>
+          <td><button class="text-button small danger-text" type="button" (click)="removePosItem($index)"><app-icon name="trash"/></button></td>
+         </tr>
+        }
+       </tbody>
+      </table>
+     </div>
+    }
+    <div class="form-grid">
+     <label>Método de pago<select name="posMethod" [(ngModel)]="posPaymentMethod">@for(m of methods; track m){<option>{{m}}</option>}</select></label>
+     <label>Descuento COP<input name="posDiscount" type="number" min="0" [(ngModel)]="posDiscount"></label>
+     <label>Referencia de pago / Voucher<input name="posRef" [(ngModel)]="posReference" placeholder="Ej. Aprobación tarjeta o Nequi"></label>
+     <label>Notas de la venta<input name="posNotes" [(ngModel)]="posNotes" placeholder="Observaciones"></label>
+    </div>
+    <div class="payment-summary" style="margin-top:16px;">
+     <div><small>Subtotal</small><strong>{{money(posSubtotal)}}</strong></div>
+     <div><small>Descuento</small><strong>{{money(posDiscount)}}</strong></div>
+     <div><small>Total a cobrar</small><strong class="positive">{{money(posTotal)}}</strong></div>
+    </div>
+   </div>
+   <footer class="modal-footer">
+    <button class="button secondary" type="button" (click)="posModal=false">Cancelar</button>
+    <button class="button primary" type="submit" style="background:#2e4f28;"><app-icon name="check"/>Cobrar {{money(posTotal)}} y Registrar Pedido</button>
+   </footer>
+  </form>
+ </app-dialog>
+}
+
+@if(userModal){
+ <app-dialog [title]="userForm.id ? 'Editar Colaborador' : 'Nuevo Colaborador'" eyebrow="GESTIÓN DE PERSONAL" (dismiss)="userModal=false;error.set('')">
+  <form (ngSubmit)="saveUserSubmit()">
+   <div class="modal-scroll">
+    @if(error()){<p class="error" role="alert">{{error()}}</p>}
+    <label>Nombre y Apellidos *<input name="userName" [(ngModel)]="userForm.name" required placeholder="Ej. Carlos Mendoza"></label>
+    <label>Correo Electrónico *<input name="userEmail" type="email" [(ngModel)]="userForm.email" required placeholder="carlos@floristeria.com"></label>
+    <div class="form-grid">
+     <label>Teléfono<input name="userPhone" [(ngModel)]="userForm.phone" placeholder="+57 300 000 0000"></label>
+     <label>Rol asignado<select name="userRole" [(ngModel)]="userForm.roleId">@for(r of roles; track r.id){<option [value]="r.id">{{r.name}}</option>}</select></label>
+    </div>
+    <label class="checkbox-line" style="margin-top:8px;"><input type="checkbox" name="userActive" [(ngModel)]="userForm.isActive">Colaborador activo en el sistema</label>
+   </div>
+   <footer class="modal-footer">
+    <button class="button secondary" type="button" (click)="userModal=false">Volver</button>
+    <button class="button primary" type="submit"><app-icon name="check"/>Guardar colaborador</button>
+   </footer>
+  </form>
+ </app-dialog>
+}
+
+@if(roleModal){
+ <app-dialog [title]="roleForm.id ? 'Editar Rol' : 'Nuevo Rol'" eyebrow="CARGOS Y PERMISOS" (dismiss)="roleModal=false;error.set('')">
+  <form (ngSubmit)="saveRoleSubmit()">
+   <div class="modal-scroll">
+    @if(error()){<p class="error" role="alert">{{error()}}</p>}
+    <label>Nombre del Rol *<input name="roleName" [(ngModel)]="roleForm.name" required placeholder="Ej. Diseñador Floral"></label>
+    <label>Descripción de responsabilidades<textarea name="roleDesc" [(ngModel)]="roleForm.description" rows="3" placeholder="Descripción de actividades y funciones del rol"></textarea></label>
+   </div>
+   <footer class="modal-footer">
+    <button class="button secondary" type="button" (click)="roleModal=false">Volver</button>
+    <button class="button primary" type="submit"><app-icon name="check"/>Guardar rol</button>
+   </footer>
+  </form>
+ </app-dialog>
+}
+

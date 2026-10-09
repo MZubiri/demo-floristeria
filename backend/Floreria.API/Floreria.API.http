@@ -1,0 +1,6 @@
+@Floreria.API_HostAddress = http://localhost:5112
+
+GET {{Floreria.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
