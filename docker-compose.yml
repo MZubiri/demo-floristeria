@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  backend:
+  flore-backend:
     build:
       context: ./backend/Floreria.API
       dockerfile: Dockerfile
@@ -17,20 +17,19 @@ services:
       - default
       - coolify
 
-  frontend:
+  flore-frontend:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: floreria-frontend
     restart: unless-stopped
     depends_on:
-      - backend
+      - flore-backend
     expose:
       - "80"
     labels:
       - coolify.managed=true
       - "coolify.fqdn=https://gestionfloreria.molinazdev.lat"
-      - traefik.http.services.frontend.loadbalancer.server.port=80
     networks:
       - default
       - coolify

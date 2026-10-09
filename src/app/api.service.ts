@@ -29,7 +29,9 @@ export interface SyncStatus {
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
-  private readonly baseUrl = 'http://localhost:5000/api';
+  private readonly baseUrl = (typeof window !== 'undefined' && window.location.hostname === 'localhost' && window.location.port === '4200')
+    ? 'http://localhost:5000/api'
+    : '/api';
   private token: string | null = null;
   private currentUser: User | null = null;
 
