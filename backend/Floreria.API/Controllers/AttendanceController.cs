@@ -17,21 +17,53 @@ public class AttendanceController : ControllerBase
         _context = context;
     }
 
-    [HttpGet]
-    public async Task<ActionResult<IEnumerable<AttendanceDto>>> GetByDate([FromQuery] string? date)
+    public static DateTime ColombiaNow
     {
-        var targetDate = string.IsNullOrWhiteSpace(date) ? DateTime.UtcNow.ToString("yyyy-MM-dd") : date;
+        get
+        {
+            try
+            {
+                var tz = TimeZoneInfo.FindSystemTimeZoneById("America/Bogota");
+                return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
+            }
+            catch
+            {
+                try
+                {
+                    var tz = TimeZoneInfo.FindSystemTimeZoneById("SA Pacific Standard Time");
+                    return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
+                }
+                catch
+                {
+                    return DateTime.UtcNow.AddHours(-5);
+                }
+            }
+        }
+    }
 
-        // Asegurar que todos los usuarios activos tengan un registro inicial o aparezcan en la lista para pasar lista
-        var users = await _context.Users
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<AttendanceDto>>> GetByDate(
+        [FromQuery] string? date,
+        [FromQuery] int? userId = null)
+    {
+        var targetDate = string.IsNullOrWhiteSpace(date) ? ColombiaNow.ToString("yyyy-MM-dd") : date;
+
+        // Asegurar que los usuarios activos tengan un registro inicial o aparezcan en la lista para pasar lista
+        var usersQuery = _context.Users
             .Include(u => u.Role)
-            .Where(u => u.IsActive)
-            .ToListAsync();
+            .Where(u => u.IsActive);
+
+        if (userId.HasValue && userId.Value > 0)
+        {
+            usersQuery = usersQuery.Where(u => u.Id == userId.Value);
+        }
+
+        var users = await usersQuery.ToListAsync();
 
         var existingRecords = await _context.Attendances
             .Include(a => a.User)
                 .ThenInclude(u => u!.Role)
-            .Where(a => a.Date == targetDate)
+            .Where(a => a.Date == targetDate && (!userId.HasValue || a.UserId == userId.Value))
             .ToListAsync();
 
         var result = new List<AttendanceDto>();
@@ -50,7 +82,8 @@ public class AttendanceController : ControllerBase
                     record.ClockIn,
                     record.ClockOut,
                     record.Status,
-                    record.Notes
+                    record.Notes,
+                    record.DeviceFingerprint
                 ));
             }
             else
@@ -65,6 +98,7 @@ public class AttendanceController : ControllerBase
                     null,
                     null,
                     "Sin registrar",
+                    null,
                     null
                 ));
             }
@@ -122,7 +156,7 @@ public class AttendanceController : ControllerBase
     [HttpGet("summary")]
     public async Task<ActionResult<AttendanceSummaryDto>> GetSummary([FromQuery] string? date)
     {
-        var targetDate = string.IsNullOrWhiteSpace(date) ? DateTime.UtcNow.ToString("yyyy-MM-dd") : date;
+        var targetDate = string.IsNullOrWhiteSpace(date) ? ColombiaNow.ToString("yyyy-MM-dd") : date;
         var totalActive = await _context.Users.CountAsync(u => u.IsActive);
         var records = await _context.Attendances.Where(a => a.Date == targetDate).ToListAsync();
 
@@ -137,7 +171,7 @@ public class AttendanceController : ControllerBase
     [HttpGet("today/{userId}")]
     public async Task<ActionResult<AttendanceDto?>> GetTodayAttendance(int userId)
     {
-        var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
+        var today = ColombiaNow.ToString("yyyy-MM-dd");
         var record = await _context.Attendances
             .Include(a => a.User)
                 .ThenInclude(u => u!.Role)
@@ -165,7 +199,7 @@ public class AttendanceController : ControllerBase
         var user = await _context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Id == dto.UserId);
         if (user == null) return NotFound(new { message = "Trabajador no encontrado." });
 
-        var targetDate = string.IsNullOrWhiteSpace(dto.Date) ? DateTime.UtcNow.ToString("yyyy-MM-dd") : dto.Date;
+        var targetDate = string.IsNullOrWhiteSpace(dto.Date) ? ColombiaNow.ToString("yyyy-MM-dd") : dto.Date;
         var record = await _context.Attendances.FirstOrDefaultAsync(a => a.UserId == dto.UserId && a.Date == targetDate);
 
         if (record == null)
@@ -174,7 +208,7 @@ public class AttendanceController : ControllerBase
             {
                 UserId = dto.UserId,
                 Date = targetDate,
-                ClockIn = dto.ClockIn ?? DateTime.Now.ToString("HH:mm"),
+                ClockIn = dto.ClockIn ?? ColombiaNow.ToString("HH:mm"),
                 ClockOut = dto.ClockOut,
                 Status = dto.Status,
                 Notes = dto.Notes,
@@ -213,8 +247,8 @@ public class AttendanceController : ControllerBase
         var user = await _context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Id == dto.UserId);
         if (user == null) return NotFound(new { message = "Trabajador no encontrado." });
 
-        var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
-        var nowTime = DateTime.Now.ToString("HH:mm");
+        var today = !string.IsNullOrWhiteSpace(dto.ClientDate) ? dto.ClientDate : ColombiaNow.ToString("yyyy-MM-dd");
+        var nowTime = !string.IsNullOrWhiteSpace(dto.ClientTime) ? dto.ClientTime : ColombiaNow.ToString("HH:mm");
 
         var record = await _context.Attendances.FirstOrDefaultAsync(a => a.UserId == dto.UserId && a.Date == today);
         if (record == null)
@@ -259,8 +293,8 @@ public class AttendanceController : ControllerBase
         var user = await _context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Id == dto.UserId);
         if (user == null) return NotFound(new { message = "Trabajador no encontrado." });
 
-        var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
-        var nowTime = DateTime.Now.ToString("HH:mm");
+        var today = !string.IsNullOrWhiteSpace(dto.ClientDate) ? dto.ClientDate : ColombiaNow.ToString("yyyy-MM-dd");
+        var nowTime = !string.IsNullOrWhiteSpace(dto.ClientTime) ? dto.ClientTime : ColombiaNow.ToString("HH:mm");
 
         var record = await _context.Attendances.FirstOrDefaultAsync(a => a.UserId == dto.UserId && a.Date == today);
         if (record == null)

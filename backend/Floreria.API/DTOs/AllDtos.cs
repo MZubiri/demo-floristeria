@@ -77,7 +77,9 @@ public record MarkAttendanceDto(
 public record ClockInOutDto(
     int UserId,
     string? Notes,
-    string? DeviceFingerprint = null
+    string? DeviceFingerprint = null,
+    string? ClientTime = null,
+    string? ClientDate = null
 );
 
 public record AttendanceSummaryDto(

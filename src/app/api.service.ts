@@ -270,14 +270,14 @@ export class ApiService {
     }
   }
 
-  async clockIn(data: { userId: number; notes?: string; deviceFingerprint?: string }): Promise<Attendance> {
+  async clockIn(data: { userId: number; notes?: string; deviceFingerprint?: string; clientTime?: string; clientDate?: string }): Promise<Attendance> {
     return this.request<Attendance>('/attendance/clock-in', {
       method: 'POST',
       body: JSON.stringify(data)
     });
   }
 
-  async clockOut(data: { userId: number; notes?: string; deviceFingerprint?: string }): Promise<Attendance> {
+  async clockOut(data: { userId: number; notes?: string; deviceFingerprint?: string; clientTime?: string; clientDate?: string }): Promise<Attendance> {
     return this.request<Attendance>('/attendance/clock-out', {
       method: 'POST',
       body: JSON.stringify(data)

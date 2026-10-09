@@ -308,13 +308,17 @@ export class AppComponent implements OnInit, OnDestroy {
     this.checkingIn = true;
     try {
       const fingerprint = this.getDeviceFingerprint();
+      const time = this.colombiaCurrentTime;
+      const date = dayKey();
       await this.apiService.clockIn({
         userId: user.id,
         notes: this.checkInNotes || 'Pase de lista al iniciar jornada',
-        deviceFingerprint: fingerprint
+        deviceFingerprint: fingerprint,
+        clientTime: time,
+        clientDate: date
       });
       this.checkInModal = false;
-      this.notify('¡Pase de lista registrado con éxito! Tu hora de entrada y la huella del equipo quedaron guardadas.');
+      this.notify('¡Pase de lista registrado con éxito! Tu hora de entrada (' + time + ') y la huella del equipo quedaron guardadas.');
       await this.store.refreshFromDatabase();
     } catch (e) {
       this.notify('Error al registrar entrada: ' + (e as Error).message);
@@ -341,12 +345,16 @@ export class AppComponent implements OnInit, OnDestroy {
     this.clockingOut = true;
     try {
       const fingerprint = this.getDeviceFingerprint();
+      const time = this.colombiaCurrentTime;
+      const date = dayKey();
       await this.apiService.clockOut({
         userId: user.id,
         notes: this.logoutNotes || 'Registro de salida al cerrar jornada',
-        deviceFingerprint: fingerprint
+        deviceFingerprint: fingerprint,
+        clientTime: time,
+        clientDate: date
       });
-      this.notify('¡Salida registrada con éxito y huella del equipo!');
+      this.notify('¡Salida registrada con éxito (' + time + ') y huella del equipo!');
     } catch (e) {
       console.warn('No se pudo registrar salida en BD', e);
     } finally {
@@ -587,9 +595,53 @@ export class AppComponent implements OnInit, OnDestroy {
     }
   }
 
+  get colombiaCurrentTime(): string {
+    return new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false });
+  }
+
+  get myTodayAttendance(): Attendance | undefined {
+    const user = this.currentUser();
+    if (!user) return undefined;
+    const records = this.state().attendances || [];
+    return records.find(r => r.userId === user.id && r.date === this.today);
+  }
+
+  get myAttendanceHistory(): Attendance[] {
+    const user = this.currentUser();
+    if (!user) return [];
+    const records = this.state().attendances || [];
+    return records
+      .filter(r => r.userId === user.id)
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }
+
+  async registerMyExitOnly() {
+    const user = this.currentUser();
+    if (!user) return;
+    try {
+      const fingerprint = this.getDeviceFingerprint();
+      const time = this.colombiaCurrentTime;
+      const date = dayKey();
+      await this.apiService.clockOut({
+        userId: user.id,
+        notes: 'Registro de salida desde panel de asistencia',
+        deviceFingerprint: fingerprint,
+        clientTime: time,
+        clientDate: date
+      });
+      await this.store.refreshFromDatabase();
+      this.notify('¡Hora de salida (' + time + ') registrada exitosamente con huella del equipo!');
+    } catch (e) {
+      this.notify('Error al registrar salida: ' + (e as Error).message);
+    }
+  }
+
   // --- PASE DE LISTA ---
   get attendanceUsers(): User[] {
-    return this.state().users || [];
+    const all = this.state().users || [];
+    if (this.isAdmin()) return all;
+    const cur = this.currentUser();
+    return all.filter(u => u.id === cur?.id);
   }
 
   get dayAttendances() {

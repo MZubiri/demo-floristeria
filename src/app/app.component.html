@@ -190,8 +190,9 @@
  }
 
  @if(view()==='asistencia'){
+ @if(isAdmin()){
  <section class="page-heading">
-  <div><div class="eyebrow">CONTROL DE PERSONAL Y PUNTUALIDAD</div><h1>Pase de lista y asistencia</h1><p>Registro diario de asistencia, entradas, salidas y novedades del equipo.</p></div>
+  <div><div class="eyebrow">CONTROL GERENCIAL DE PERSONAL Y PUNTUALIDAD</div><h1>Pase de lista y asistencia general</h1><p>Registro diario de asistencia, entradas, salidas y novedades del equipo completo (Hora Colombia COT / UTC-5).</p></div>
   <div class="button-row"><button class="button secondary" (click)="exportAttendanceExcel()"><app-icon name="excel"/>Exportar Excel</button><button class="button primary" (click)="attendanceDate=today"><app-icon name="calendar"/>Hoy</button></div>
  </section>
  <div class="metrics">
@@ -201,7 +202,7 @@
   <article class="metric"><div class="metric-top"><span>Faltas o permisos</span><span class="metric-icon rose"><app-icon name="alert"/></span></div><strong>{{attendanceStats.absent + attendanceStats.justified}}</strong><small>{{attendanceStats.justified}} justificados · {{attendanceStats.absent}} faltas</small></article>
  </div>
  <section class="panel">
-  <div class="section-heading"><div><h2>Pase de lista diario</h2><p>Marca la entrada, salida o estado del día con un clic.</p></div><div class="date-range"><label>Fecha de lista<input type="date" [(ngModel)]="attendanceDate"></label></div></div>
+  <div class="section-heading"><div><h2>Pase de lista diario del equipo</h2><p>Marca la entrada, salida o estado del día con un clic en tiempo real.</p></div><div class="date-range"><label>Fecha de lista<input type="date" [(ngModel)]="attendanceDate"></label></div></div>
   <div class="table-scroll"><table><thead><tr><th>Colaborador</th><th>Rol / Cargo</th><th>Entrada</th><th>Salida</th><th>Estado</th><th>Observaciones</th><th>Acciones de lista</th></tr></thead><tbody>
   @for(item of dayAttendances;track item.user.id){
    <tr>
@@ -226,6 +227,43 @@
   </tbody></table></div>
   <div class="panel-footer">{{dayAttendances.length}} trabajadores en plantilla · Los cambios se actualizan automáticamente en el sistema</div>
  </section>
+ }@else{
+ <section class="page-heading">
+  <div><div class="eyebrow">MI ASISTENCIA Y JORNADA LABORAL</div><h1>Mi Registro de Asistencia</h1><p>Control personal de puntualidad, entradas, salidas y turnos en Floristería La Carreta (Hora Colombia UTC-5).</p></div>
+  <div class="button-row">
+   @if(!myTodayAttendance?.clockIn){
+     <button class="button primary" (click)="checkInModal=true"><app-icon name="clock"/>Marcar mi entrada</button>
+   }@else if(!myTodayAttendance?.clockOut){
+     <button class="button secondary" (click)="registerMyExitOnly()"><app-icon name="check"/>Marcar mi salida</button>
+   }
+  </div>
+ </section>
+ <div class="metrics">
+  <article class="metric"><div class="metric-top"><span>Hora Colombia (COT)</span><span class="metric-icon sage"><app-icon name="clock"/></span></div><strong>{{colombiaCurrentTime}}</strong><small>Hora oficial Bogotá (UTC-5)</small></article>
+  <article class="metric"><div class="metric-top"><span>Mi entrada de hoy</span><span class="metric-icon sage"><app-icon name="check"/></span></div><strong class="positive">{{myTodayAttendance?.clockIn || 'Sin registrar'}}</strong><small class="positive">{{myTodayAttendance?.clockIn ? 'Jornada iniciada' : 'Pendiente de registrar'}}</small></article>
+  <article class="metric"><div class="metric-top"><span>Mi salida de hoy</span><span class="metric-icon peach"><app-icon name="clock"/></span></div><strong>{{myTodayAttendance?.clockOut || 'En turno'}}</strong><small>{{myTodayAttendance?.clockOut ? 'Jornada cerrada' : 'Activo en turno'}}</small></article>
+  <article class="metric"><div class="metric-top"><span>Mi estado hoy</span><span class="metric-icon rose"><app-icon name="alert"/></span></div><strong><span class="badge" [class]="myTodayAttendance?.status==='Presente'?'green':myTodayAttendance?.status==='Retardo'?'amber':'neutral'">{{myTodayAttendance?.status || 'Pendiente'}}</span></strong><small>{{myTodayAttendance?.notes || 'Sin novedades'}}</small></article>
+ </div>
+ <section class="panel">
+  <div class="section-heading"><div><h2>Mi Historial de Asistencias</h2><p>Registro exclusivo de tus jornadas laborales y huella del dispositivo utilizado.</p></div></div>
+  <div class="table-scroll"><table><thead><tr><th>Fecha</th><th>Hora Entrada</th><th>Hora Salida</th><th>Estado</th><th>Observaciones</th><th>Dispositivo / Huella</th></tr></thead><tbody>
+  @for(record of myAttendanceHistory;track record.id){
+   <tr>
+    <td><strong>{{record.date}}</strong></td>
+    <td><strong class="positive">{{record.clockIn || '—'}}</strong></td>
+    <td><strong>{{record.clockOut || '—'}}</strong></td>
+    <td><span class="badge" [class]="record.status==='Presente'?'green':record.status==='Retardo'?'amber':record.status==='Falta'?'rose':'neutral'">{{record.status}}</span></td>
+    <td><small>{{record.notes || 'Normal'}}</small></td>
+    <td><small style="font-family:monospace;font-size:11px;color:#6b7280;">{{record.deviceFingerprint || 'Dispositivo autorizado'}}</small></td>
+   </tr>
+  }
+  @if(!myAttendanceHistory.length){
+   <tr><td colspan="6" style="text-align:center;padding:24px;color:#888;">No tienes registros de asistencia en el sistema.</td></tr>
+  }
+  </tbody></table></div>
+  <div class="panel-footer">{{myAttendanceHistory.length}} registros en tu historial personal</div>
+ </section>
+ }
  }
 
  @if(view()==='usuarios'){
