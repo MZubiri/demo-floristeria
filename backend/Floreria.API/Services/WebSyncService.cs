@@ -257,8 +257,8 @@ public class WebSyncService : IWebSyncService
                     Customer = wo.CustomerName,
                     Phone = wo.CustomerPhone,
                     Email = wo.CustomerEmail ?? "",
-                    Recipient = wo.CustomerName,
-                    RecipientPhone = wo.CustomerPhone,
+                    Recipient = string.IsNullOrWhiteSpace(wo.RecipientName) ? wo.CustomerName : wo.RecipientName,
+                    RecipientPhone = string.IsNullOrWhiteSpace(wo.RecipientPhone) ? wo.CustomerPhone : wo.RecipientPhone,
                     Address = wo.DeliveryAddress,
                     Area = string.IsNullOrWhiteSpace(wo.DeliveryMunicipality) ? "Caldas" : wo.DeliveryMunicipality,
                     DeliveryDate = string.IsNullOrWhiteSpace(wo.DeliveryDate) ? DateTime.UtcNow.ToString("yyyy-MM-dd") : wo.DeliveryDate,
@@ -750,6 +750,8 @@ public class WebSyncService : IWebSyncService
         public string CustomerName { get; set; } = string.Empty;
         public string CustomerPhone { get; set; } = string.Empty;
         public string? CustomerEmail { get; set; }
+        public string? RecipientName { get; set; }
+        public string? RecipientPhone { get; set; }
         public string DeliveryAddress { get; set; } = string.Empty;
         public string? DeliveryMunicipality { get; set; }
         public decimal DeliveryFee { get; set; }
