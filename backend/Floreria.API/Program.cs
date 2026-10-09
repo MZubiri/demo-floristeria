@@ -54,6 +54,7 @@ builder.Services.AddDbContext<FloreriaDbContext>(options =>
 // Services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IExcelExportService, ExcelExportService>();
+builder.Services.AddHttpClient<IWebSyncService, WebSyncService>();
 
 // JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "GestionFloreria_SecretKey_987654321_ABCXYZ_ProductionReady";
@@ -89,9 +90,9 @@ builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo
     {
-        Title = "Floré Estudio Floral API",
+        Title = "Floristería La Carreta - API de Gestión",
         Version = "v1",
-        Description = "API REST de Gestión de Florería: Pedidos, Inventario, Asistencia / Pase de Lista, Ventas Locales y Exportación a Excel."
+        Description = "API REST de Gestión Integral para Florería La Carreta: Pedidos, Inventario, Asistencia / Pase de Lista, Ventas Locales POS, Sincronización Web y Exportación a Excel."
     });
 
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -142,7 +143,7 @@ using (var scope = app.Services.CreateScope())
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Floré API v1");
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Floristeria La Carreta API v1");
     c.RoutePrefix = "swagger";
 });
 

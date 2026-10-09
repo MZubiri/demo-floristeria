@@ -46,7 +46,7 @@ export async function clearPhotos(){await photoTask('readwrite',s=>s.clear());}
  @for(p of photos();track p.id){<figure><a [href]="p.url" target="_blank" rel="noopener" aria-label="Abrir fotografía"><img [src]="p.url" [alt]="p.kind+' del pedido'" loading="lazy"></a><figcaption><span>{{p.kind}}<small>{{size(p.blob.size)}} · Local</small></span><button class="icon-button danger-text" type="button" aria-label="Eliminar fotografía" (click)="remove(p)" [disabled]="busy()"><app-icon name="trash"/></button></figcaption></figure>}
  </div>
  @if(!photos().length && !busy()){<div class="empty-photo"><app-icon name="camera"/><p>El detalle también está en las fotos.</p><small>Agrega una imagen desde tu iPhone o computador.</small></div>}
- <p class="micro">Demo local: estas fotos no se suben a un servidor. Máx. 20 MB por archivo. Si HEIC no se abre, utiliza JPEG.</p>
+ <p class="micro">Almacenamiento de fotografías del pedido. Máx. 20 MB por archivo.</p>
 `})
 export class PhotosComponent implements OnChanges,OnDestroy {
  @Input({required:true}) orderId=''; photos=signal<PhotoView[]>([]);busy=signal(false);error=signal('');private disposed=false;

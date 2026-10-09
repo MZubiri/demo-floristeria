@@ -1,18 +1,104 @@
+@if (!isLoggedIn()) {
+  <div class="login-wrapper">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="login-logo">
+          <app-icon name="flower" style="width:32px;height:32px;"/>
+        </div>
+        <h1>Floristería La Carreta</h1>
+        <p>Sistema Integral de Gestión y Operaciones</p>
+      </div>
+
+      @if (loginError()) {
+        <div class="error" role="alert" style="margin-bottom:16px;">
+          {{ loginError() }}
+        </div>
+      }
+
+      <form class="login-form" (ngSubmit)="doLogin()">
+        <label>
+          Correo electrónico
+          <input type="email" name="email" [(ngModel)]="loginEmail" required placeholder="admin@floristeria.com" autocomplete="username">
+        </label>
+        <label>
+          Contraseña
+          <input type="password" name="password" [(ngModel)]="loginPassword" required placeholder="••••••••" autocomplete="current-password">
+        </label>
+        <button type="submit" class="login-button" [disabled]="loginLoading()">
+          @if (loginLoading()) {
+            <span>Ingresando al sistema...</span>
+          } @else {
+            <app-icon name="check"/>
+            <span>Iniciar Sesión</span>
+          }
+        </button>
+      </form>
+
+      <div class="quick-login-section">
+        <div class="quick-login-title">Acceso rápido por cargo / usuario</div>
+        <div class="quick-login-grid">
+          <button type="button" class="quick-btn" (click)="quickLogin('admin@floristeria.com', 'admin123')">
+            <strong>Administrador</strong>
+            <small>admin@floristeria.com</small>
+          </button>
+          <button type="button" class="quick-btn" (click)="quickLogin('laura@floristeria.com', 'laura123')">
+            <strong>Cajera / Mostrador</strong>
+            <small>laura@floristeria.com</small>
+          </button>
+          <button type="button" class="quick-btn" (click)="quickLogin('carlos@floristeria.com', 'carlos123')">
+            <strong>Florista / Taller</strong>
+            <small>carlos@floristeria.com</small>
+          </button>
+          <button type="button" class="quick-btn" (click)="quickLogin('andres@floristeria.com', 'andres123')">
+            <strong>Repartidor</strong>
+            <small>andres@floristeria.com</small>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+} @else {
 <div class="app-shell">
- <a class="skip-link" href="#main-content">Saltar al contenido</a>
- <aside class="sidebar">
- <a class="brand" href="#inicio" (click)="go('inicio')"><img src="assets/mark.svg" alt="" width="43" height="43"><span>floré<span class="brand-sub">ESTUDIO FLORAL</span></span></a>
- <div class="workspace"><span class="workspace-avatar">F</span><div><strong>{{state().business}}</strong><small>Mi espacio de trabajo</small></div><span class="live-dot"></span></div>
- <nav aria-label="Navegación principal">
- @for(n of navItems;track n.id){@if(n.group){<p class="nav-caption">{{n.group}}</p>}<button type="button" [class.active]="view()===n.id" [attr.aria-current]="view()===n.id?'page':null" (click)="go(n.id)"><app-icon [name]="n.icon"/><span>{{n.label}}</span>@if(n.id==='pedidos'){<b>{{activeOrders().length}}</b>}</button>}
- </nav>
- <div class="sidebar-bottom"><div class="demo-tag"><span></span>ESPACIO DE DEMOSTRACIÓN</div><p>Grandes detalles.<br>Todo bajo control.</p><small>Diseñado por MolinazDev</small></div>
- </aside>
- <div class="main-wrap">
- <header class="topbar"><div class="breadcrumbs"><span class="mobile-brand">floré</span><span class="desktop-crumb">Mi floristería</span><app-icon name="chevron"/><strong>{{pageTitle}}</strong></div><div class="topbar-actions"><button class="button primary small" style="background:#2e4f28;color:#fff;" (click)="openPos()" aria-label="Registrar venta directa en local"><app-icon name="pos"/>Venta Local</button><span class="local-status"><span class="live-dot"></span>Demo local</span><button class="icon-button" aria-label="Ver entregas de hoy" (click)="go('agenda');resetCalendar()"><app-icon name="calendar"/></button><button class="user-button" aria-label="Configuración de la demo" (click)="go('ajustes')">AD</button></div></header>
- <main id="main-content">
- @if(store.warning()){<p class="notice" role="alert">{{store.warning()}}</p>}
- <div class="demo-banner"><app-icon name="info"/><span>Demo interactiva · Datos ficticios. Los cambios y fotos se guardan <strong>solo en este navegador.</strong></span><button type="button" (click)="go('ajustes')" aria-label="Ver límites de la demo">Ver detalles<app-icon name="arrow"/></button></div>
+  <a class="skip-link" href="#main-content">Saltar al contenido</a>
+  <aside class="sidebar">
+  <a class="brand" href="#inicio" (click)="go('inicio')"><img src="assets/mark.svg" alt="" width="43" height="43"><span>La Carreta<span class="brand-sub">FLORISTERÍA</span></span></a>
+  <div class="workspace"><span class="workspace-avatar">LC</span><div><strong>{{state().business}}</strong><small>Base de datos activa</small></div><span class="live-dot"></span></div>
+  <nav aria-label="Navegación principal">
+  @for(n of navItems;track n.id){@if(n.group){<p class="nav-caption">{{n.group}}</p>}<button type="button" [class.active]="view()===n.id" [attr.aria-current]="view()===n.id?'page':null" (click)="go(n.id)"><app-icon [name]="n.icon"/><span>{{n.label}}</span>@if(n.id==='pedidos'){<b>{{activeOrders().length}}</b>}</button>}
+  </nav>
+  <div class="sidebar-bottom"><div class="demo-tag" style="color:#3e6335;"><span style="background:#52804b;"></span>MYSQL CONECTADO</div><p>Grandes detalles.<br>Todo bajo control.</p><small>Floristería La Carreta</small></div>
+  </aside>
+  <div class="main-wrap">
+  <header class="topbar">
+    <div class="breadcrumbs">
+      <span class="mobile-brand">La Carreta</span>
+      <span class="desktop-crumb">Floristería La Carreta</span>
+      <app-icon name="chevron"/>
+      <strong>{{pageTitle}}</strong>
+    </div>
+    <div class="topbar-actions">
+      <button class="sync-btn" [class.syncing]="syncingWeb()" (click)="syncWebShop()" title="Sincronizar pedidos e inventario con la página web en vivo (https://floreria.molinazdev.lat)">
+        <app-icon name="refresh"/>
+        <span>{{syncingWeb() ? 'Sincronizando...' : 'Sincronizar Web'}}</span>
+      </button>
+      <button class="button primary small" style="background:#2e4f28;color:#fff;" (click)="openPos()" aria-label="Registrar venta directa en local">
+        <app-icon name="pos"/>
+        Venta Local
+      </button>
+      <span class="local-status" title="Conexión en tiempo real con base de datos MySQL"><span class="live-dot"></span>MySQL Activo</span>
+      <button class="icon-button" aria-label="Ver entregas de hoy" (click)="go('agenda');resetCalendar()"><app-icon name="calendar"/></button>
+      <div class="user-pill" [title]="currentUser()?.email || 'Usuario conectado'">
+        <div class="user-pill-avatar">{{userInitials}}</div>
+        <div class="user-pill-info">
+          <strong>{{currentUser()?.name || 'Usuario'}}</strong>
+          <small>{{currentUser()?.roleName || 'Colaborador'}}</small>
+        </div>
+        <button class="logout-btn" (click)="doLogout()" title="Cerrar Sesión"><app-icon name="close" style="width:14px;height:14px;"/></button>
+      </div>
+    </div>
+  </header>
+  <main id="main-content">
+  @if(store.warning()){<p class="notice" role="alert">{{store.warning()}}</p>}
 
  @if(view()==='inicio'){
  <section class="page-heading"><div><div class="eyebrow">TU NEGOCIO, EN PLENA FLORACIÓN</div><h1>Qué bonito verte por aquí.</h1><p>{{todayLabel}} <span class="dot-divider">·</span> Todo listo para un día lleno de detalles.</p></div><button class="button primary" (click)="newOrder()"><app-icon name="plus"/>Nuevo pedido</button></section>
@@ -64,7 +150,7 @@
  @if(view()==='catalogo'){
  <section class="page-heading"><div><div class="eyebrow">CREACIONES QUE HABLAN POR TI</div><h1>Catálogo floral</h1><p>Arreglos, materiales y costos en perfecta armonía.</p></div><button class="button primary" (click)="newOrder()"><app-icon name="plus"/>Pedido personalizado</button></section>
  <div class="toolbar standalone-toolbar"><label class="search-field"><app-icon name="search"/><input [(ngModel)]="catalogQuery" placeholder="Encontrar un arreglo…" aria-label="Buscar en catálogo"></label><select [(ngModel)]="catalogCategory" aria-label="Categoría de producto"><option value="">Todas las categorías</option><option>Ramos</option><option>Premium</option><option>Detalles</option></select></div>
- <section class="product-grid">@for(p of filteredProducts;track p.id){<article class="product-card"><div class="product-art"><img [src]="p.image" [alt]="'Ilustración de '+p.name" loading="lazy"><span class="badge paper">{{p.category}}</span><span class="illustration-label">ILUSTRACIÓN DEMO</span></div><div class="product-body"><h2>{{p.name}}</h2><p>{{p.description}}</p><div class="product-pricing"><strong>{{money(p.price)}}</strong><small>Costo estimado {{money(productCost(p))}}</small></div><details><summary>Ver receta · {{p.recipe.length}} materiales</summary><ul class="recipe-summary">@for(r of p.recipe;track r.materialId){<li><span>{{materialName(r.materialId)}}</span><b>{{r.quantity}}</b></li>}</ul></details><button class="button secondary full" (click)="newOrder(p)"><app-icon name="plus"/>Crear pedido con este arreglo</button></div></article>}@empty{<div class="empty"><h3>No hay arreglos con ese filtro</h3><p>Prueba otra búsqueda.</p></div>}</section>
+ <section class="product-grid">@for(p of filteredProducts;track p.id){<article class="product-card"><div class="product-art"><img [src]="p.image" [alt]="'Fotografía de '+p.name" loading="lazy"><span class="badge paper">{{p.category}}</span><span class="illustration-label">CATÁLOGO LA CARRETA</span></div><div class="product-body"><h2>{{p.name}}</h2><p>{{p.description}}</p><div class="product-pricing"><strong>{{money(p.price)}}</strong><small>Costo estimado {{money(productCost(p))}}</small></div><details><summary>Ver receta · {{p.recipe.length}} materiales</summary><ul class="recipe-summary">@for(r of p.recipe;track r.materialId){<li><span>{{materialName(r.materialId)}}</span><b>{{r.quantity}}</b></li>}</ul></details><button class="button secondary full" (click)="newOrder(p)"><app-icon name="plus"/>Crear pedido con este arreglo</button></div></article>}@empty{<div class="empty"><h3>No hay arreglos con ese filtro</h3><p>Prueba otra búsqueda.</p></div>}</section>
  }
 
  @if(view()==='inventario'){
@@ -161,7 +247,7 @@
  <div class="metrics three-metrics"><article class="metric"><span>Cobros de hoy</span><strong>{{money(daily().collected)}}</strong><small>Según la fecha de cada pago</small></article><article class="metric"><span>Por cobrar · total</span><strong>{{money(receivables())}}</strong><small>Incluye pedidos abiertos y entregados</small></article><article class="metric"><span>Ventas entregadas hoy</span><strong>{{money(daily().revenue)}}</strong><small>No confundir venta con cobro</small></article></div>
  <section class="panel"><div class="section-heading"><div><h2>Cuentas por cobrar</h2><p>Abre un pedido para registrar uno o varios abonos.</p></div></div><div class="toolbar"><label class="search-field"><app-icon name="search"/><input [(ngModel)]="paymentQuery" placeholder="Cliente o número de pedido" aria-label="Buscar cuentas por cobrar"></label><label class="checkbox-line"><input [(ngModel)]="onlyBalance" type="checkbox">Solo con saldo</label></div>
  <div class="table-scroll"><table><thead><tr><th>Pedido</th><th>Cliente</th><th>Total</th><th>Abonado</th><th>Saldo</th><th>Pago</th><th></th></tr></thead><tbody>@for(o of paymentOrders;track o.id){<tr><td><strong>{{o.number}}</strong></td><td>{{o.customer}}</td><td>{{money(total(o))}}</td><td>{{money(paid(o))}}</td><td><strong>{{money(balance(o))}}</strong></td><td><span class="badge" [class]="balance(o)===0?'sage':'amber'">{{paymentLabel(o)}}</span></td><td><button class="text-button small" (click)="open(o);detailTab='pagos'">{{balance(o)>0?'Registrar abono':'Ver pagos'}}<app-icon name="arrow"/></button></td></tr>}</tbody></table></div>@if(!paymentOrders.length){<div class="empty compact"><h3>No hay saldos con esos filtros</h3></div>}</section>
- <section class="panel spaced-panel"><div class="section-heading"><div><h2>Últimos pagos recibidos</h2><p>Registro manual de demostración. Sin conexión a bancos.</p></div></div><div class="table-scroll"><table><thead><tr><th>Fecha</th><th>Pedido</th><th>Método</th><th>Referencia</th><th>Valor</th></tr></thead><tbody>@for(p of allPayments.slice(0,12);track p.id){<tr><td>{{dateTime(p.date)}}</td><td>{{p.order}}</td><td>{{p.method}}</td><td>{{p.reference || '—'}}</td><td><strong class="positive">{{money(p.amount)}}</strong></td></tr>}</tbody></table></div></section>
+ <section class="panel spaced-panel"><div class="section-heading"><div><h2>Últimos pagos recibidos</h2><p>Registro de pagos y abonos conciliados en base de datos.</p></div></div><div class="table-scroll"><table><thead><tr><th>Fecha</th><th>Pedido</th><th>Método</th><th>Referencia</th><th>Valor</th></tr></thead><tbody>@for(p of allPayments.slice(0,12);track p.id){<tr><td>{{dateTime(p.date)}}</td><td>{{p.order}}</td><td>{{p.method}}</td><td>{{p.reference || '—'}}</td><td><strong class="positive">{{money(p.amount)}}</strong></td></tr>}</tbody></table></div></section>
  }
 
  @if(view()==='gastos'){
@@ -175,7 +261,7 @@
  <div class="filter-tabs"><button [class.active]="contactTab==='clientes'" (click)="contactTab='clientes'">Clientes</button><button [class.active]="contactTab==='proveedores'" (click)="contactTab='proveedores'">Proveedores</button></div>
  <div class="toolbar standalone-toolbar"><label class="search-field"><app-icon name="search"/><input [(ngModel)]="contactQuery" placeholder="Buscar por nombre o teléfono…" aria-label="Buscar contactos"></label></div>
  @if(contactTab==='clientes'){<section class="contact-grid">@for(c of clients;track c.phone){<article class="panel contact-card"><span class="contact-avatar">{{initials(c.name)}}</span><h2>{{c.name}}</h2><p>{{c.phone}}</p><small>{{c.email||'Sin correo registrado'}}</small><div class="contact-stats"><div><small>Pedidos</small><strong>{{c.orders}}</strong></div><div><small>Comprado / entregado</small><strong>{{money(c.spent)}}</strong></div></div>@if(c.balance>0){<span class="badge amber">Saldo {{money(c.balance)}}</span>}@else{<span class="badge sage">Sin saldos pendientes</span>}<button class="text-button" (click)="clientOrders(c.phone)">Ver historial<app-icon name="arrow"/></button></article>}@empty{<div class="empty"><p>No encontramos ese cliente.</p></div>}</section>}
- @else{<section class="contact-grid">@for(s of suppliers;track s.name){<article class="panel contact-card supplier"><span class="contact-avatar"><app-icon name="stock"/></span><h2>{{s.name}}</h2><p>Proveedor de demostración</p><div class="supplier-materials">@for(m of s.materials;track m.id){<span class="badge neutral">{{m.name}}</span>}</div><div class="contact-stats"><div><small>Materiales</small><strong>{{s.materials.length}}</strong></div><div><small>Entradas registradas</small><strong>{{money(s.purchases)}}</strong></div></div><button class="text-button" (click)="openStock('entrada',s.materials[0].id)">Registrar una compra<app-icon name="arrow"/></button></article>}</section>}
+ @else{<section class="contact-grid">@for(s of suppliers;track s.name){<article class="panel contact-card supplier"><span class="contact-avatar"><app-icon name="stock"/></span><h2>{{s.name}}</h2><p>Proveedor registrado</p><div class="supplier-materials">@for(m of s.materials;track m.id){<span class="badge neutral">{{m.name}}</span>}</div><div class="contact-stats"><div><small>Materiales</small><strong>{{s.materials.length}}</strong></div><div><small>Entradas registradas</small><strong>{{money(s.purchases)}}</strong></div></div><button class="text-button" (click)="openStock('entrada',s.materials[0].id)">Registrar una compra<app-icon name="arrow"/></button></article>}</section>}
  }
 
  @if(view()==='informes'){
@@ -189,13 +275,13 @@
  }
 
  @if(view()==='ajustes'){
- <section class="page-heading"><div><div class="eyebrow">TU ESPACIO, A TU MANERA</div><h1>Configuración</h1><p>Personaliza la demo y conoce su alcance.</p></div></section>
- <div class="settings-grid"><section class="panel"><div class="section-heading"><div><h2>Tu floristería</h2><p>Identidad provisional para la presentación.</p></div><app-icon name="flower"/></div><label>Nombre del negocio<input #business [value]="state().business" maxlength="80"></label><button class="button primary" (click)="saveBusiness(business.value)">Guardar nombre</button><dl class="settings-list"><div><dt>Moneda</dt><dd>Peso colombiano · COP</dd></div><div><dt>Perfil</dt><dd>Administradora demo</dd></div><div><dt>Acceso</dt><dd>Sin autenticación real</dd></div><div><dt>Aplicación</dt><dd>Angular · web responsive</dd></div></dl></section>
- <section class="panel"><div class="section-heading"><div><h2>Datos de demostración</h2><p>Guardados únicamente en este navegador.</p></div><app-icon name="stock"/></div><p class="notice">No introduzcas datos personales, comprobantes o fotos reales de clientes. No hay servidor, sincronización ni respaldo automático.</p><button class="button secondary full" (click)="exportData()"><app-icon name="download"/>Exportar registros JSON</button><p class="micro">La exportación no incluye fotografías. Borrar los datos del sitio puede eliminar la demo.</p><hr><h3>Volver a empezar</h3><p class="muted">Restablece los pedidos de ejemplo y elimina los cambios y fotos locales.</p><button class="button danger" (click)="reset()"><app-icon name="refresh"/>Reiniciar demo</button></section>
- <section class="panel"><h2>En tu iPhone</h2><ol class="instruction-list"><li>Abre la dirección web de la demo en Safari.</li><li>Para un acceso directo, usa Compartir → Añadir a pantalla de inicio.</li><li>Abre un pedido y entra en Fotografías para usar cámara o galería.</li><li>Deja abierta la página mientras se procesa la foto.</li></ol><p class="micro">El acceso directo no convierte esta demo en una app offline. La carga inicial requiere conexión. No requiere App Store ni una cuenta Apple Developer.</p></section>
- <section class="panel production-note"><span class="eyebrow">LA SIGUIENTE ETAPA</span><h2>Preparada para crecer contigo.</h2><p>En producción: API ASP.NET Core, MySQL, acceso privado por usuario, fotografías protegidas, conversión HEIC en servidor y respaldos externos.</p><p>En esta demo, las devoluciones y ajustes después de consumir materiales requieren desarrollo adicional. No se fingen cobros, autenticación ni sincronización.</p><a class="text-button" href="https://github.com/MZubiri/demo-floristeria" target="_blank" rel="noopener">Ver código y documentación<app-icon name="arrow"/></a></section></div>
+ <section class="page-heading"><div><div class="eyebrow">SISTEMA INTEGRAL</div><h1>Configuración y Conexiones</h1><p>Parámetros del negocio, servidor y sincronización en la nube.</p></div></section>
+ <div class="settings-grid"><section class="panel"><div class="section-heading"><div><h2>Floristería La Carreta</h2><p>Parámetros generales de la empresa.</p></div><app-icon name="flower"/></div><label>Nombre del negocio<input #business [value]="state().business" maxlength="80"></label><button class="button primary" (click)="saveBusiness(business.value)">Guardar nombre</button><dl class="settings-list"><div><dt>Moneda</dt><dd>Peso colombiano · COP</dd></div><div><dt>Usuario actual</dt><dd>{{currentUser()?.name || 'Administrador'}} ({{currentUser()?.roleName || 'Admin'}})</dd></div><div><dt>Base de datos</dt><dd>MySQL 8.0 (gestion_floreria)</dd></div><div><dt>Backend</dt><dd>ASP.NET Core 9.0 REST API</dd></div></dl></section>
+ <section class="panel"><div class="section-heading"><div><h2>Sincronización Tienda Web</h2><p>Conexión directa con la tienda virtual desplegada.</p></div><app-icon name="stock"/></div><p class="notice">La tienda web en https://floreria.molinazdev.lat sincroniza en tiempo real sus pedidos nuevos y su catálogo con este sistema de gestión.</p><button class="button primary full" [disabled]="syncingWeb()" (click)="syncWebShop()"><app-icon name="refresh"/>{{syncingWeb() ? 'Sincronizando...' : 'Sincronizar ahora con la web'}}</button><hr><button class="button secondary full" (click)="exportData()"><app-icon name="download"/>Exportar respaldo local JSON</button></section>
+ <section class="panel"><h2>Acceso Móvil / Web App</h2><ol class="instruction-list"><li>Abre la aplicación web desde cualquier navegador móvil (Safari o Chrome).</li><li>Para acceso directo como app, usa Compartir → Añadir a pantalla de inicio.</li><li>Puedes registrar ventas de mostrador, tomar fotografías y marcar asistencia desde el teléfono.</li></ol></section>
+ <section class="panel production-note"><span class="eyebrow">ARQUITECTURA DE PRODUCCIÓN</span><h2>Floristería La Carreta</h2><p>Sistema empresarial conectado con base de datos relacional MySQL y sincronización de comercio electrónico.</p><dl class="settings-list"><div><dt>Tienda Web</dt><dd>https://floreria.molinazdev.lat</dd></div><div><dt>API Local</dt><dd>http://localhost:5000/api</dd></div><div><dt>Frontend</dt><dd>Angular 19 Standalone</dd></div></dl></section></div>
  }
- <footer class="page-footer"><span>floré <span>· Un poco más de calma para tu negocio.</span></span><small>DEMO POR MOLINAZDEV</small></footer>
+ <footer class="page-footer"><span>Floristería La Carreta <span>· Gestión Integral y Operaciones</span></span><small>MOLINAZDEV · VERSIÓN EMPRESARIAL</small></footer>
  </main>
  </div>
  <nav class="mobile-nav" aria-label="Navegación móvil"><button [class.active]="view()==='inicio'" (click)="go('inicio')"><app-icon name="home"/><span>Inicio</span></button><button [class.active]="view()==='pedidos'" (click)="go('pedidos')"><app-icon name="orders"/><span>Pedidos</span></button><button [class.active]="view()==='agenda'" (click)="go('agenda')"><app-icon name="calendar"/><span>Agenda</span></button><button [class.active]="view()==='inventario'" (click)="go('inventario')"><app-icon name="stock"/><span>Stock</span></button><button [class.active]="menuOpen" (click)="menuOpen=!menuOpen" [attr.aria-expanded]="menuOpen"><app-icon name="menu"/><span>Más</span></button></nav>
@@ -225,7 +311,7 @@
  @if(detailTab==='fotos'){<app-photos [orderId]="o.id"/>}
  @if(detailTab==='pagos'){
  <div class="payment-summary"><div><small>Total</small><strong>{{money(total(o))}}</strong></div><div><small>Abonado</small><strong>{{money(paid(o))}}</strong></div><div><small>Pendiente</small><strong>{{money(balance(o))}}</strong></div></div>
- @if(balance(o)>0&&o.status!=='cancelado'){<form class="payment-form" (ngSubmit)="pay(o)"><h3>Registrar un abono</h3><div class="form-grid"><label>Valor del abono *<input name="amount" type="number" [(ngModel)]="detailAmount" min="1" [max]="balance(o)" required inputmode="numeric"></label><label>Método de pago<select name="method" [(ngModel)]="detailMethod">@for(m of methods;track m){<option>{{m}}</option>}</select></label><label class="span-2">Referencia u observación<input name="reference" [(ngModel)]="detailReference" placeholder="Opcional" maxlength="150"></label></div><button class="button primary" type="submit"><app-icon name="plus"/>Guardar abono</button><p class="micro">Registro de demo. No realiza cobros ni verifica transferencias.</p></form>}
+ @if(balance(o)>0&&o.status!=='cancelado'){<form class="payment-form" (ngSubmit)="pay(o)"><h3>Registrar un abono</h3><div class="form-grid"><label>Valor del abono *<input name="amount" type="number" [(ngModel)]="detailAmount" min="1" [max]="balance(o)" required inputmode="numeric"></label><label>Método de pago<select name="method" [(ngModel)]="detailMethod">@for(m of methods;track m){<option>{{m}}</option>}</select></label><label class="span-2">Referencia u observación<input name="reference" [(ngModel)]="detailReference" placeholder="Opcional" maxlength="150"></label></div><button class="button primary" type="submit"><app-icon name="plus"/>Guardar abono</button><p class="micro">Registra el abono directamente en la base de datos MySQL.</p></form>}
  @for(p of o.payments;track p.id){<div class="payment-entry"><span class="metric-icon sage"><app-icon name="wallet"/></span><div><strong>{{p.method}}</strong><small>{{dateTime(p.date)}} · {{p.reference||'Sin referencia'}}</small></div><strong>{{money(p.amount)}}</strong></div>}@empty{<div class="empty compact"><app-icon name="wallet"/><p>Este pedido todavía no tiene abonos.</p></div>}
  }
  @if(detailTab==='historial'){<h3>La historia de este pedido</h3><ol class="timeline">@for(h of o.history.slice().reverse();track $index){<li><span></span><div><strong>{{h.title}}</strong><small>{{dateTime(h.date)}}</small><p>{{h.note}}</p></div></li>}</ol>}
@@ -350,5 +436,6 @@
    </footer>
   </form>
  </app-dialog>
+}
 }
 

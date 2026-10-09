@@ -44,6 +44,71 @@ public class ProductsController : ControllerBase
 
         return Ok(products);
     }
+
+    [HttpGet("{id}")]
+    public async Task<ActionResult<object>> GetById(string id)
+    {
+        var p = await _context.Products
+            .Include(x => x.Recipe)
+                .ThenInclude(r => r.Material)
+            .FirstOrDefaultAsync(x => x.Id == id);
+
+        if (p == null) return NotFound(new { message = "Producto no encontrado." });
+
+        return Ok(new
+        {
+            p.Id,
+            p.Name,
+            p.Category,
+            p.Price,
+            p.Labor,
+            p.Image,
+            p.Description,
+            p.IsActive,
+            Recipe = p.Recipe.Select(r => new
+            {
+                r.MaterialId,
+                r.Quantity,
+                UnitCost = r.Material != null ? r.Material.Cost : r.UnitCost
+            })
+        });
+    }
+
+    public record SaveProductDto(string? Id, string Name, string Category, decimal Price, decimal Labor, string? Image, string? Description, bool IsActive, List<IngredientDto>? Recipe);
+
+    [HttpPost]
+    public async Task<ActionResult<object>> Create([FromBody] SaveProductDto dto)
+    {
+        var id = string.IsNullOrWhiteSpace(dto.Id) ? "p_" + Guid.NewGuid().ToString("N")[..8] : dto.Id;
+        var prod = new Product
+        {
+            Id = id,
+            Name = dto.Name,
+            Category = dto.Category,
+            Price = dto.Price,
+            Labor = dto.Labor,
+            Image = dto.Image ?? "assets/rosas.svg",
+            Description = dto.Description ?? "",
+            IsActive = dto.IsActive
+        };
+
+        if (dto.Recipe != null)
+        {
+            foreach (var r in dto.Recipe)
+            {
+                prod.Recipe.Add(new ProductRecipe
+                {
+                    MaterialId = r.MaterialId,
+                    Quantity = r.Quantity,
+                    UnitCost = r.UnitCost
+                });
+            }
+        }
+
+        _context.Products.Add(prod);
+        await _context.SaveChangesAsync();
+        return CreatedAtAction(nameof(GetById), new { id = prod.Id }, prod);
+    }
 }
 
 [ApiController]

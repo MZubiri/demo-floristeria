@@ -23,4 +23,5 @@ obj/
 mysql_data/
 *.db
 *.sqlite
-
+# Local scratch
+scratch/

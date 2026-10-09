@@ -1,17 +1,17 @@
-import { Component, computed, HostListener, inject, signal } from '@angular/core';
+import { Component, computed, HostListener, inject, signal, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { IconComponent } from './icon.component';
 import { DialogComponent } from './dialog.component';
 import { PhotosComponent, clearPhotos } from './photos.component';
 import { OrderFormComponent } from './order-form.component';
-import { DemoStore } from './store';
-import { ApiService } from './api.service';
+import { AppStore } from './store';
+import { ApiService, SyncStatus } from './api.service';
 import {
   type Order, type OrderStatus, type Product, type Material, type User, type Role, type Attendance,
   STATUSES, METHODS, total, paid, balance, orderCost, paymentLabel, nextStatus,
   reserved, available, dayKey, offsetDay, blankOrder, newLine, saveOrder, addPayment,
   transition, moveStock, summary, csvCell, uid, directSale, markAttendance, saveUser,
-  toggleUserStatus, deleteUser, saveRole
+  toggleUserStatus, deleteUser, saveRole, validateOrder
 } from './domain';
 
 type View = 'inicio' | 'pedidos' | 'agenda' | 'catalogo' | 'inventario' | 'asistencia' | 'usuarios' | 'pagos' | 'gastos' | 'contactos' | 'informes' | 'ajustes';
@@ -22,20 +22,41 @@ type View = 'inicio' | 'pedidos' | 'agenda' | 'catalogo' | 'inventario' | 'asist
   imports: [FormsModule, IconComponent, DialogComponent, PhotosComponent, OrderFormComponent],
   templateUrl: './app.component.html'
 })
-export class AppComponent {
-  readonly store = inject(DemoStore);
+export class AppComponent implements OnInit {
+  readonly store = inject(AppStore);
   readonly apiService = inject(ApiService);
   readonly state = this.store.state;
 
+  // ==========================================
+  // AUTENTICACIÓN Y CONTROL DE ACCESO
+  // ==========================================
+  readonly isLoggedIn = signal<boolean>(this.apiService.isLoggedIn);
+  loginEmail = 'admin@floristeria.com';
+  loginPassword = 'admin123';
+  readonly loginLoading = signal<boolean>(false);
+  readonly loginError = signal<string>('');
+  readonly currentUser = computed(() => this.apiService.user);
+
+  get userInitials(): string {
+    const name = this.currentUser()?.name || 'Administrador';
+    return name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+  }
+
+  // ==========================================
+  // SINCRONIZACIÓN CON TIENDA WEB
+  // ==========================================
+  readonly syncingWeb = signal<boolean>(false);
+  readonly webSyncStatus = signal<SyncStatus | null>(null);
+
   readonly navItems: { id: View; label: string; icon: string; group: string }[] = [
-    { id: 'inicio', label: 'Inicio', icon: 'home', group: 'TU FLORISTERÍA' },
+    { id: 'inicio', label: 'Inicio', icon: 'home', group: 'FLORISTERÍA' },
     { id: 'pedidos', label: 'Pedidos', icon: 'orders', group: '' },
     { id: 'agenda', label: 'Agenda de entregas', icon: 'calendar', group: '' },
     { id: 'catalogo', label: 'Catálogo floral', icon: 'flower', group: '' },
     { id: 'inventario', label: 'Inventario y merma', icon: 'stock', group: '' },
     { id: 'asistencia', label: 'Pase de lista', icon: 'clipboard', group: 'EQUIPO Y GESTIÓN' },
     { id: 'usuarios', label: 'Usuarios y roles', icon: 'users', group: '' },
-    { id: 'pagos', label: 'Ventas y pagos', icon: 'wallet', group: 'TU NEGOCIO' },
+    { id: 'pagos', label: 'Ventas y cobros', icon: 'wallet', group: 'ADMINISTRACIÓN' },
     { id: 'gastos', label: 'Gastos', icon: 'expense', group: '' },
     { id: 'contactos', label: 'Clientes y proveedores', icon: 'users', group: '' },
     { id: 'informes', label: 'Informes', icon: 'chart', group: '' },
@@ -108,25 +129,97 @@ export class AppComponent {
   expenseTo = dayKey();
 
   // ==========================================
-  // VENTA DIRECTA EN LOCAL (PUNTO DE VENTA / POS)
+  // VENTA DIRECTA EN LOCAL (POS)
   // ==========================================
   posModal = false;
   posCustomer = 'Cliente Mostrador';
   posPhone = '';
   posPaymentMethod = 'Efectivo';
   posDiscount = 0;
-  posReference = 'Venta en tienda física';
+  posReference = 'Venta física mostrador';
   posNotes = '';
   posSelectedProductId = '';
   posItems: { product: Product; quantity: number; price: number }[] = [];
 
+  // ==========================================
+  // PASE DE LISTA
+  // ==========================================
+  attendanceDate = dayKey();
+  attendanceFilter = 'all';
+
+  // ==========================================
+  // MODALES DE USUARIOS Y ROLES
+  // ==========================================
+  userModal = false;
+  userSearch = '';
+  userForm = { id: 0, name: '', email: '', phone: '', roleId: 1, isActive: true };
+  roleModal = false;
+  roleForm = { id: 0, name: '', description: '' };
+
+  ngOnInit() {
+    if (this.isLoggedIn()) {
+      this.store.refreshFromDatabase();
+      this.checkWebSyncStatus();
+    }
+  }
+
+  async doLogin() {
+    this.loginLoading.set(true);
+    this.loginError.set('');
+    try {
+      await this.apiService.login(this.loginEmail, this.loginPassword);
+      this.isLoggedIn.set(true);
+      await this.store.refreshFromDatabase();
+      this.checkWebSyncStatus();
+      this.notify(`¡Bienvenido a Florería La Carreta, ${this.currentUser()?.name || ''}!`);
+    } catch (err) {
+      this.loginError.set((err as Error).message);
+    } finally {
+      this.loginLoading.set(false);
+    }
+  }
+
+  quickLogin(email: string, pass: string) {
+    this.loginEmail = email;
+    this.loginPassword = pass;
+    this.doLogin();
+  }
+
+  doLogout() {
+    this.apiService.clearSession();
+    this.isLoggedIn.set(false);
+    this.notify('Sesión cerrada correctamente.');
+  }
+
+  async checkWebSyncStatus() {
+    try {
+      const st = await this.apiService.getSyncStatus();
+      this.webSyncStatus.set(st);
+    } catch { }
+  }
+
+  async syncWebShop() {
+    this.syncingWeb.set(true);
+    try {
+      const res = await this.apiService.syncWeb();
+      await this.store.refreshFromDatabase();
+      await this.checkWebSyncStatus();
+      this.notify(res.message || 'Sincronización con tienda web completada.');
+    } catch (e) {
+      this.notify('Error al sincronizar con tienda web: ' + (e as Error).message);
+    } finally {
+      this.syncingWeb.set(false);
+    }
+  }
+
+  // --- VENTA EN LOCAL ---
   openPos() {
     this.posModal = true;
     this.posCustomer = 'Cliente Mostrador';
     this.posPhone = '';
     this.posPaymentMethod = 'Efectivo';
     this.posDiscount = 0;
-    this.posReference = 'Venta directa mostrador';
+    this.posReference = 'Venta física mostrador';
     this.posNotes = '';
     this.error.set('');
     if (this.state().products.length) {
@@ -163,33 +256,36 @@ export class AppComponent {
     return Math.max(0, this.posSubtotal - (this.posDiscount || 0));
   }
 
-  confirmPosSale() {
+  async confirmPosSale() {
     try {
       if (!this.posItems.length) throw new Error('Agrega al menos un arreglo o producto a la venta.');
-      const { next, order } = directSale(this.state(), {
+      this.error.set('');
+      const saleDto = {
         customer: this.posCustomer,
         phone: this.posPhone,
-        items: this.posItems,
+        items: this.posItems.map(i => ({
+          productId: i.product.id,
+          name: i.product.name,
+          quantity: i.quantity,
+          price: i.price
+        })),
         paymentMethod: this.posPaymentMethod,
         discount: Number(this.posDiscount) || 0,
         reference: this.posReference,
         notes: this.posNotes
-      });
-      this.store.commit(next);
+      };
+      const order = await this.apiService.createDirectSale(saleDto);
+      await this.store.refreshFromDatabase();
       this.posModal = false;
-      this.notify(`¡Venta directa registrada! Pedido ${order.number} agregado y materiales descontados.`);
-      this.open(order);
+      this.notify(`¡Venta directa registrada! Pedido ${order.number} guardado en base de datos.`);
+      const created = this.state().orders.find(x => x.number === order.number || x.id === order.id);
+      if (created) this.open(created);
     } catch (e) {
       this.error.set((e as Error).message);
     }
   }
 
-  // ==========================================
-  // PASE DE LISTA / ASISTENCIA DE TRABAJADORES
-  // ==========================================
-  attendanceDate = dayKey();
-  attendanceFilter = 'all';
-
+  // --- PASE DE LISTA ---
   get attendanceUsers(): User[] {
     return this.state().users || [];
   }
@@ -208,7 +304,7 @@ export class AppComponent {
           date: this.attendanceDate,
           clockIn: undefined,
           clockOut: undefined,
-          status: 'Sin registrar',
+          status: 'Pendiente',
           notes: ''
         }
       };
@@ -216,67 +312,56 @@ export class AppComponent {
   }
 
   get attendanceStats() {
-    const list = this.dayAttendances.map(a => a.record);
+    const records = this.dayAttendances;
     return {
-      total: list.length,
-      present: list.filter(r => r.status === 'Presente').length,
-      late: list.filter(r => r.status === 'Retardo').length,
-      absent: list.filter(r => r.status === 'Falta').length,
-      justified: list.filter(r => r.status === 'Justificado' || r.status === 'Permiso').length,
-      pending: list.filter(r => r.status === 'Sin registrar').length
+      total: records.length,
+      present: records.filter(r => r.record.status === 'Presente').length,
+      late: records.filter(r => r.record.status === 'Retardo').length,
+      absent: records.filter(r => r.record.status === 'Falta').length,
+      justified: records.filter(r => r.record.status === 'Justificado' || r.record.status === 'Permiso').length,
+      pending: records.filter(r => r.record.status === 'Pendiente').length
     };
   }
 
-  quickMark(userId: number, status: string, notes?: string) {
-    const nowTime = new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false });
-    const user = this.state().users?.find(u => u.id === userId);
-    const existing = this.state().attendances?.find(a => a.userId === userId && a.date === this.attendanceDate);
-
-    const next = markAttendance(this.state(), {
-      userId,
-      date: this.attendanceDate,
-      clockIn: existing?.clockIn || (status === 'Presente' || status === 'Retardo' ? nowTime : undefined),
-      clockOut: existing?.clockOut,
-      status,
-      notes: notes ?? (existing?.notes || (status === 'Presente' ? 'Entrada confirmada' : status))
-    });
-    this.store.commit(next);
-    this.notify(`Asistencia de ${user?.name || 'colaborador'}: ${status}`);
+  async quickClockIn(userId: number) {
+    const time = new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false });
+    await this.markAttendanceRecord(userId, 'Presente', undefined, time, undefined);
   }
 
-  quickClockIn(userId: number) {
-    const nowTime = new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false });
-    this.quickMark(userId, 'Presente', `Entrada: ${nowTime}`);
+  async quickClockOut(userId: number) {
+    const time = new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false });
+    await this.markAttendanceRecord(userId, 'Presente', undefined, undefined, time);
   }
 
-  quickClockOut(userId: number) {
-    const nowTime = new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false });
-    const existing = this.state().attendances?.find(a => a.userId === userId && a.date === this.attendanceDate);
-    const next = markAttendance(this.state(), {
-      userId,
-      date: this.attendanceDate,
-      clockIn: existing?.clockIn || '08:00',
-      clockOut: nowTime,
-      status: existing?.status || 'Presente',
-      notes: (existing?.notes ? existing.notes + ' · ' : '') + `Salida: ${nowTime}`
-    });
-    this.store.commit(next);
-    this.notify(`Salida registrada a las ${nowTime}`);
+  async quickMark(userId: number, status: string) {
+    await this.markAttendanceRecord(userId, status);
   }
 
-  // ==========================================
-  // CRUD DE USUARIOS Y ROLES
-  // ==========================================
-  userModal = false;
-  userForm = { id: 0, name: '', email: '', phone: '', roleId: 2, isActive: true };
-  userSearch = '';
-  roleModal = false;
-  roleForm = { id: 0, name: '', description: '' };
+  async markAttendanceRecord(userId: number, status: string, notes?: string, clockIn?: string, clockOut?: string) {
+    try {
+      const existing = this.dayAttendances.find(a => a.user.id === userId)?.record;
+      await this.apiService.markAttendance({
+        userId,
+        date: this.attendanceDate,
+        status,
+        notes: notes ?? existing?.notes,
+        clockIn: clockIn ?? existing?.clockIn,
+        clockOut: clockOut ?? existing?.clockOut
+      });
+      await this.store.refreshFromDatabase();
+      this.notify(`Asistencia guardada en base de datos.`);
+    } catch (e) {
+      this.error.set((e as Error).message);
+    }
+  }
+
+  // --- USUARIOS Y ROLES ---
+  get users(): User[] {
+    return this.state().users || [];
+  }
 
   get filteredUsers(): User[] {
-    const list = this.state().users || [];
-    if (!this.userSearch.trim()) return list;
-    return list.filter(u => this.search(`${u.name} ${u.email} ${u.phone} ${u.roleName}`, this.userSearch));
+    return this.users.filter(u => !this.userSearch || this.search(u.name + ' ' + u.email + ' ' + (u.phone || ''), this.userSearch));
   }
 
   get roles(): Role[] {
@@ -287,36 +372,39 @@ export class AppComponent {
     if (u) {
       this.userForm = { id: u.id, name: u.name, email: u.email, phone: u.phone, roleId: u.roleId, isActive: u.isActive };
     } else {
-      this.userForm = { id: 0, name: '', email: '', phone: '', roleId: this.roles[0]?.id || 2, isActive: true };
+      this.userForm = { id: 0, name: '', email: '', phone: '', roleId: this.roles[0]?.id || 1, isActive: true };
     }
     this.error.set('');
     this.userModal = true;
   }
 
-  saveUserSubmit() {
+  async saveUserSubmit() {
     try {
-      if (!this.userForm.name.trim() || !this.userForm.email.trim()) {
-        throw new Error('Completa el nombre y correo electrónico del colaborador.');
+      if (!this.userForm.name.trim()) throw new Error('El nombre es obligatorio.');
+      if (!this.userForm.email.trim()) throw new Error('El correo electrónico es obligatorio.');
+      if (this.userForm.id) {
+        await this.apiService.updateUser(this.userForm.id, this.userForm);
+      } else {
+        await this.apiService.createUser({ ...this.userForm, password: 'florer123' });
       }
-      const next = saveUser(this.state(), this.userForm);
-      this.store.commit(next);
+      await this.store.refreshFromDatabase();
       this.userModal = false;
-      this.notify(`Colaborador ${this.userForm.name} guardado con éxito.`);
+      this.notify(`Colaborador ${this.userForm.name} guardado en base de datos.`);
     } catch (e) {
       this.error.set((e as Error).message);
     }
   }
 
-  toggleUser(id: number) {
-    const next = toggleUserStatus(this.state(), id);
-    this.store.commit(next);
-    this.notify('Estado del colaborador actualizado.');
+  async toggleUser(id: number) {
+    await this.apiService.toggleUserStatus(id);
+    await this.store.refreshFromDatabase();
+    this.notify('Estado del colaborador actualizado en base de datos.');
   }
 
-  deleteUserClick(id: number) {
+  async deleteUserClick(id: number) {
     if (!confirm('¿Eliminar este colaborador de la plantilla?')) return;
-    const next = deleteUser(this.state(), id);
-    this.store.commit(next);
+    await this.apiService.deleteUser(id);
+    await this.store.refreshFromDatabase();
     this.notify('Colaborador eliminado.');
   }
 
@@ -330,21 +418,23 @@ export class AppComponent {
     this.roleModal = true;
   }
 
-  saveRoleSubmit() {
+  async saveRoleSubmit() {
     try {
       if (!this.roleForm.name.trim()) throw new Error('Escribe el nombre del rol.');
-      const next = saveRole(this.state(), { id: this.roleForm.id, name: this.roleForm.name, description: this.roleForm.description, permissions: ['*'] });
-      this.store.commit(next);
+      if (this.roleForm.id) {
+        await this.apiService.updateRole(this.roleForm.id, this.roleForm);
+      } else {
+        await this.apiService.createRole({ ...this.roleForm, permissionsJson: '["*"]' });
+      }
+      await this.store.refreshFromDatabase();
       this.roleModal = false;
-      this.notify('Rol actualizado correctamente.');
+      this.notify('Rol guardado en base de datos.');
     } catch (e) {
       this.error.set((e as Error).message);
     }
   }
 
-  // ==========================================
-  // EXPORTACIONES A EXCEL (.xlsx / XML)
-  // ==========================================
+  // --- EXPORTACIONES EXCEL ---
   async exportOrdersExcel() {
     const downloaded = await this.apiService.downloadExcelFromBackend('orders', `Floreria_Pedidos_${dayKey()}.xlsx`);
     if (!downloaded) {
@@ -402,7 +492,7 @@ export class AppComponent {
         m.stock * m.cost,
         m.supplier
       ]);
-      this.apiService.downloadExcelLocal([{ name: 'Inventario Floral', headers, rows }], `Floreria_Inventario_${dayKey()}`);
+      this.apiService.downloadExcelLocal([{ name: 'Inventario', headers, rows }], `Floreria_Inventario_${dayKey()}`);
     }
     this.notify('Excel de inventario descargado exitosamente.');
   }
@@ -410,113 +500,53 @@ export class AppComponent {
   async exportFinancialExcel() {
     const downloaded = await this.apiService.downloadExcelFromBackend('financial', `Floreria_Financiero_${dayKey()}.xlsx`);
     if (!downloaded) {
-      const r = this.report;
       const headers = ['Concepto', 'Valor COP'];
       const rows = [
-        ['Ventas entregadas (Ingresos)', r.revenue],
-        ['Costo de ventas (Materiales)', r.cost],
-        ['Gastos operativos', r.expenses],
-        ['Merma y deterioro', r.waste],
-        ['Costo cancelaciones', r.canceledCost],
-        ['Utilidad neta estimada', r.profit],
-        ['Cobros recibidos en caja', r.collected]
+        ['Ventas Entregadas', this.report.revenue],
+        ['Costo de Arreglos y Flores', this.report.cost],
+        ['Gastos Operativos', this.report.expenses],
+        ['Pérdida por Merma', this.report.waste],
+        ['Utilidad Operativa Estimada', this.report.profit],
+        ['Total Cobros Recibidos', this.report.collected]
       ];
-      this.apiService.downloadExcelLocal([{ name: 'Estado Financiero', headers, rows }], `Floreria_Financiero_${dayKey()}`);
+      this.apiService.downloadExcelLocal([{ name: 'Rentabilidad', headers, rows }], `Floreria_Financiero_${dayKey()}`);
     }
-    this.notify('Excel financiero descargado exitosamente.');
+    this.notify('Informe financiero exportado a Excel.');
   }
 
-  // ==========================================
-  // MÉTODOS BASE DEL NEGOCIO
-  // ==========================================
-  constructor() {
-    this.onHash();
-  }
-
-  @HostListener('window:hashchange')
-  onHash() {
-    const hash = location.hash.slice(1) as View;
-    if (this.navItems.some(n => n.id === hash)) this.view.set(hash);
-  }
-
-  go(v: View) {
-    this.view.set(v);
-    location.hash = v;
+  // --- NAVEGACIÓN Y DETALLES DE PEDIDO ---
+  go(view: View) {
+    this.view.set(view);
     this.menuOpen = false;
-    this.error.set('');
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   get pageTitle() {
-    return this.navItems.find(n => n.id === this.view())?.label || 'Inicio';
-  }
-
-  get todayLabel() {
-    return new Date().toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' });
-  }
-
-  money(n: number) {
-    return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n || 0);
-  }
-
-  number(n: number) {
-    return new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1 }).format(n);
-  }
-
-  shortDate(s: string) {
-    return new Date(s.length === 10 ? s + 'T12:00:00' : s).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
-  }
-
-  dateTime(s: string) {
-    return new Date(s).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-  }
-
-  label(s: OrderStatus) {
-    return STATUSES.find(x => x.value === s)?.label || s;
-  }
-
-  color(s: OrderStatus) {
-    return STATUSES.find(x => x.value === s)?.color || 'neutral';
-  }
-
-  initials(name: string) {
-    return name.split(' ').slice(0, 2).map(n => n[0]).join('');
-  }
-
-  image(o: Order) {
-    return this.state().products.find(p => p.id === o.items[0]?.productId)?.image || 'assets/blancas.svg';
-  }
-
-  search(text: string, query: string) {
-    return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes(query.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase());
-  }
-
-  get filteredOrders() {
-    return this.state().orders.filter(o => this.search([o.number, o.customer, o.phone, o.recipient, ...o.items.map(i => i.name)].join(' '), this.query))
-      .filter(o => !this.statusFilter || o.status === this.statusFilter)
-      .filter(o => !this.pendingOnly || balance(o) > 0 && o.status !== 'cancelado')
-      .filter(o => this.dateFilter === 'all' || (this.dateFilter === 'today' && o.deliveryDate === this.today) || (this.dateFilter === 'tomorrow' && o.deliveryDate === offsetDay(1)) || (this.dateFilter === 'late' && o.deliveryDate < this.today && !['entregado', 'cancelado'].includes(o.status)));
+    return this.navItems.find(n => n.id === this.view())?.label ?? 'Inicio';
   }
 
   open(o: Order) {
     this.selectedId.set(o.id);
+    this.editing = false;
     this.detailTab = 'resumen';
     this.error.set('');
     this.detailAmount = balance(o);
-    this.receipt = o.recipient;
-    this.deliveryNote = '';
+    this.detailMethod = 'Nequi';
     this.detailReference = '';
+    this.receipt = '';
+    this.deliveryNote = '';
   }
 
   closeDetail() {
     this.selectedId.set('');
-    this.error.set('');
   }
 
-  newOrder(p?: Product) {
-    const d = blankOrder(this.state());
-    if (p) d.items = [newLine(p, this.state().materials)];
+  newOrder(product?: Product) {
     this.editing = false;
+    const d = blankOrder(this.state());
+    if (product) {
+      d.items = [newLine(product, this.state().materials)];
+    }
     this.closeDetail();
     this.draft.set(d);
   }
@@ -527,21 +557,25 @@ export class AppComponent {
     this.draft.set(structuredClone(o));
   }
 
-  saveDraft(o: Order) {
+  async saveDraft(o: Order) {
     try {
-      this.store.commit(saveOrder(this.state(), o));
+      validateOrder(o);
+      const saved = await this.apiService.createOrder(o);
+      await this.store.refreshFromDatabase();
       this.draft.set(null);
-      this.open(this.state().orders.find(x => x.id === o.id)!);
-      this.notify('Pedido guardado correctamente.');
+      const fresh = this.state().orders.find(x => x.id === saved.id || x.number === saved.number);
+      if (fresh) this.open(fresh);
+      this.notify('Pedido guardado correctamente en base de datos.');
     } catch (e) {
       this.error.set((e as Error).message);
     }
   }
 
-  change(o: Order, status: OrderStatus) {
-    if (status === 'cancelado' && !confirm('¿Cancelar ' + o.number + '? Se liberan reservas; los materiales consumidos no se recuperan.')) return;
+  async change(o: Order, status: OrderStatus) {
+    if (status === 'cancelado' && !confirm('¿Cancelar ' + o.number + '? Se liberan reservas de inventario.')) return;
     try {
-      this.store.commit(transition(this.state(), o.id, status, this.receipt, this.deliveryNote));
+      await this.apiService.updateOrderStatus(o.id, status, this.deliveryNote, this.receipt);
+      await this.store.refreshFromDatabase();
       this.error.set('');
       this.notify('Pedido actualizado: ' + this.label(status));
     } catch (e) {
@@ -549,12 +583,18 @@ export class AppComponent {
     }
   }
 
-  pay(o: Order) {
+  async pay(o: Order) {
     try {
-      this.store.commit(addPayment(this.state(), o.id, Number(this.detailAmount), this.detailMethod, this.detailReference));
-      this.detailAmount = balance(this.state().orders.find(x => x.id === o.id)!);
+      await this.apiService.addPayment(o.id, {
+        amount: Number(this.detailAmount),
+        method: this.detailMethod,
+        reference: this.detailReference
+      });
+      await this.store.refreshFromDatabase();
+      const fresh = this.state().orders.find(x => x.id === o.id);
+      if (fresh) this.detailAmount = balance(fresh);
       this.error.set('');
-      this.notify('Abono registrado con éxito.');
+      this.notify('Abono registrado en base de datos.');
     } catch (e) {
       this.error.set((e as Error).message);
     }
@@ -566,46 +606,307 @@ export class AppComponent {
     this.toastTimer = setTimeout(() => this.toast.set(''), 5000);
   }
 
+  // --- GRÁFICOS Y RESÚMENES ---
   get bars() {
     const amounts = Array.from({ length: 7 }, (_, i) => ({ day: offsetDay(i - 6), value: summary(this.state(), offsetDay(i - 6), offsetDay(i - 6)).revenue }));
-    const max = Math.max(...amounts.map(b => b.value), 1);
-    return amounts.map(b => ({ ...b, height: Math.max(3, b.value / max * 100), label: new Date(b.day + 'T12:00:00').toLocaleDateString('es-CO', { weekday: 'short' }) }));
-  }
-
-  get calendarLabel() {
-    return this.calendarMonth.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
-  }
-
-  get calendarCells() {
-    const start = new Date(this.calendarMonth);
-    start.setDate(1 - (start.getDay() + 6) % 7);
-    return Array.from({ length: 42 }, (_, i) => {
-      const d = new Date(start);
-      d.setDate(start.getDate() + i);
-      const key = dayKey(d);
-      return { key, day: d.getDate(), current: d.getMonth() === this.calendarMonth.getMonth(), count: this.state().orders.filter(o => o.deliveryDate === key && o.status !== 'cancelado').length };
+    const max = Math.max(...amounts.map(a => a.value), 1);
+    const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    return amounts.map(a => {
+      const d = new Date(a.day + 'T12:00:00');
+      return {
+        day: a.day,
+        value: a.value,
+        height: Math.max(8, Math.round((a.value / max) * 100)),
+        label: dayNames[d.getDay()]
+      };
     });
   }
 
-  shiftMonth(n: number) {
-    this.calendarMonth = new Date(this.calendarMonth.getFullYear(), this.calendarMonth.getMonth() + n, 1);
-  }
+  get calendarCells() {
+    const y = this.calendarMonth.getFullYear(), m = this.calendarMonth.getMonth();
+    const first = new Date(y, m, 1), startDay = (first.getDay() + 6) % 7;
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const prevDays = new Date(y, m, 0).getDate();
+    const cells: { key: string; day: number; current: boolean; count: number }[] = [];
 
-  resetCalendar() {
-    this.calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-    this.calendarDay = dayKey();
+    for (let i = startDay - 1; i >= 0; i--) {
+      const prevDate = new Date(y, m - 1, prevDays - i);
+      const key = dayKey(prevDate);
+      cells.push({ key, day: prevDays - i, current: false, count: this.state().orders.filter(o => o.deliveryDate === key && o.status !== 'cancelado').length });
+    }
+
+    for (let i = 1; i <= daysInMonth; i++) {
+      const currDate = new Date(y, m, i);
+      const key = dayKey(currDate);
+      cells.push({ key, day: i, current: true, count: this.state().orders.filter(o => o.deliveryDate === key && o.status !== 'cancelado').length });
+    }
+
+    const remaining = 42 - cells.length;
+    for (let i = 1; i <= remaining; i++) {
+      const nextDate = new Date(y, m + 1, i);
+      const key = dayKey(nextDate);
+      cells.push({ key, day: i, current: false, count: this.state().orders.filter(o => o.deliveryDate === key && o.status !== 'cancelado').length });
+    }
+
+    return cells;
   }
 
   get dayOrders() {
     return this.state().orders.filter(o => o.deliveryDate === this.calendarDay && o.status !== 'cancelado').sort((a, b) => a.time.localeCompare(b.time));
   }
 
+  shiftMonth(offset: number) {
+    this.calendarMonth = new Date(this.calendarMonth.getFullYear(), this.calendarMonth.getMonth() + offset, 1);
+  }
+
+  resetCalendar() {
+    this.calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    this.calendarDay = this.today;
+  }
+
+  get calendarLabel() {
+    return this.calendarMonth.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+  }
+
+  get todayLabel() {
+    return new Date().toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' });
+  }
+
+  // --- FILTROS DE PEDIDOS ---
+  get filteredOrders() {
+    return this.state().orders.filter(o => {
+      if (this.statusFilter && o.status !== this.statusFilter) return false;
+      if (this.pendingOnly && balance(o) === 0) return false;
+      if (this.dateFilter === 'today' && o.deliveryDate !== this.today) return false;
+      if (this.dateFilter === 'tomorrow' && o.deliveryDate !== offsetDay(1)) return false;
+      if (this.dateFilter === 'late' && (o.deliveryDate >= this.today || ['entregado', 'cancelado'].includes(o.status))) return false;
+      if (!this.query) return true;
+      return this.search(o.customer + ' ' + o.number + ' ' + o.recipient + ' ' + o.phone, this.query);
+    });
+  }
+
+  // --- CATÁLOGO ---
   get filteredProducts() {
-    return this.state().products.filter(p => this.search(p.name, this.catalogQuery) && (!this.catalogCategory || p.category === this.catalogCategory));
+    return this.state().products.filter(p => {
+      if (this.catalogCategory && p.category !== this.catalogCategory) return false;
+      if (!this.catalogQuery) return true;
+      return this.search(p.name + ' ' + p.description, this.catalogQuery);
+    });
+  }
+
+  // --- INVENTARIO ---
+  openStock(type: 'entrada' | 'merma', id = 'rosa') {
+    const m = this.state().materials.find(m => m.id === id) || this.state().materials[0];
+    const cost = m ? m.cost : 3000;
+    this.movement = { materialId: m ? m.id : id, type, quantity: 1, cost, reason: '' };
+    this.error.set('');
+    this.stockModal = true;
+  }
+
+  selectStockMaterial() {
+    this.movement.cost = this.state().materials.find(m => m.id === this.movement.materialId)?.cost || 0;
+  }
+
+  async saveStock() {
+    try {
+      await this.apiService.createMovement({
+        materialId: this.movement.materialId,
+        type: this.movement.type,
+        quantity: Number(this.movement.quantity),
+        cost: Number(this.movement.cost),
+        reason: this.movement.reason
+      });
+      await this.store.refreshFromDatabase();
+      this.stockModal = false;
+      this.notify('Movimiento de inventario guardado en base de datos.');
+    } catch (e) {
+      this.error.set((e as Error).message);
+    }
+  }
+
+  get filteredMaterials() {
+    return this.state().materials.filter(m => {
+      if (this.stockCategory && m.category !== this.stockCategory) return false;
+      if (this.onlyLow && available(this.state(), m.id) > m.minimum) return false;
+      if (!this.stockQuery) return true;
+      return this.search(m.name + ' ' + m.category, this.stockQuery);
+    });
+  }
+
+  get inventoryValue() {
+    return this.state().materials.reduce((sum, m) => sum + m.stock * m.cost, 0);
+  }
+
+  // --- GASTOS ---
+  openExpense() {
+    this.expense = { category: 'Domicilios', description: '', amount: 0, date: dayKey(), method: 'Efectivo' };
+    this.error.set('');
+    this.expenseModal = true;
+  }
+
+  async saveExpense() {
+    try {
+      const e = this.expense;
+      if (!e.description.trim() || !e.date || !Number.isFinite(Number(e.amount)) || Number(e.amount) <= 0) {
+        throw new Error('Completa la descripción, fecha y un valor mayor que cero.');
+      }
+      await this.apiService.createExpense({
+        category: e.category,
+        description: e.description,
+        amount: Math.round(Number(e.amount)),
+        date: e.date,
+        method: e.method
+      });
+      await this.store.refreshFromDatabase();
+      this.expenseModal = false;
+      this.notify('Gasto registrado en base de datos.');
+    } catch (e) {
+      this.error.set((e as Error).message);
+    }
+  }
+
+  get filteredExpenses() {
+    return (this.state().expenses || []).filter(e => e.date >= this.expenseFrom && e.date <= this.expenseTo);
+  }
+
+  get expenseTotal() {
+    return this.filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
+  }
+
+  // --- PAGOS Y COBROS ---
+  get paymentOrders() {
+    return this.state().orders.filter(o => o.status !== 'cancelado' && (!this.onlyBalance || balance(o) > 0) && this.search(o.customer + ' ' + o.number, this.paymentQuery));
+  }
+
+  get allPayments() {
+    return this.state().orders.flatMap(o => o.payments.map(p => ({ ...p, order: o.number, customer: o.customer }))).sort((a, b) => b.date.localeCompare(a.date));
+  }
+
+  // --- INFORMES ---
+  get report() {
+    return summary(this.state(), this.reportFrom, this.reportTo);
+  }
+
+  get rankings() {
+    const map = new Map<string, { name: string; quantity: number; revenue: number; cost: number }>();
+    this.state().orders.filter(o => o.status === 'entregado' && o.deliveryDate >= this.reportFrom && o.deliveryDate <= this.reportTo).forEach(o => {
+      o.items.forEach(i => {
+        const row = map.get(i.name) || { name: i.name, quantity: 0, revenue: 0, cost: 0 };
+        row.quantity += i.quantity;
+        row.revenue += i.price * i.quantity;
+        row.cost += (i.labor + i.recipe.reduce((n, r) => n + r.quantity * r.unitCost, 0)) * i.quantity;
+        map.set(i.name, row);
+      });
+    });
+    return Array.from(map.values()).sort((a, b) => b.revenue - a.revenue);
+  }
+
+  get expenseGroups() {
+    const map = new Map<string, number>();
+    this.filteredExpenses.forEach(e => map.set(e.category, (map.get(e.category) || 0) + e.amount));
+    return Array.from(map.entries()).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+  }
+
+  // --- CONTACTOS ---
+  get clients() {
+    const map = new Map<string, { name: string; phone: string; email: string; orders: number; spent: number; balance: number }>();
+    this.state().orders.forEach(o => {
+      const c = map.get(o.phone) || { name: o.customer, phone: o.phone, email: o.email, orders: 0, spent: 0, balance: 0 };
+      c.orders++;
+      if (o.status === 'entregado') c.spent += total(o);
+      if (o.status !== 'cancelado') c.balance += balance(o);
+      map.set(o.phone, c);
+    });
+    return Array.from(map.values()).filter(c => this.search(c.name + ' ' + c.phone, this.contactQuery));
+  }
+
+  get suppliers() {
+    const map = new Map<string, { name: string; materials: Material[]; purchases: number }>();
+    this.state().materials.forEach(m => {
+      const s = map.get(m.supplier) || { name: m.supplier, materials: [], purchases: 0 };
+      s.materials.push(m);
+      map.set(m.supplier, s);
+    });
+    return Array.from(map.values());
+  }
+
+  clientOrders(phone: string) {
+    this.query = phone;
+    this.go('pedidos');
+  }
+
+  range(days: number) {
+    this.reportFrom = offsetDay(-days + 1);
+    this.reportTo = this.today;
+  }
+
+  print() {
+    window.print();
+  }
+
+  exportReport() {
+    const csv = ['Concepto,Valor', `Ventas,${this.report.revenue}`, `Costos,${this.report.cost}`, `Gastos,${this.report.expenses}`, `Merma,${this.report.waste}`, `Utilidad,${this.report.profit}`].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `Floreria_Informe_${this.reportFrom}_${this.reportTo}.csv`;
+    a.click();
+  }
+
+  exportOrders() {
+    const csv = ['Pedido,Cliente,Fecha,Estado,Total,Saldo', ...this.filteredOrders.map(o => `${o.number},"${o.customer}",${o.deliveryDate},${o.status},${total(o)},${balance(o)}`)].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `Floreria_Pedidos_${this.today}.csv`;
+    a.click();
+  }
+
+  // --- HELPERS DE FORMATEO ---
+  money(n: number) {
+    return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n || 0);
+  }
+
+  number(n: number) {
+    return new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1 }).format(n || 0);
+  }
+
+  shortDate(d?: string) {
+    if (!d) return '';
+    const parts = d.substring(0, 10).split('-');
+    if (parts.length === 3) return `${parts[2]}/${parts[1]}`;
+    return d;
+  }
+
+  dateTime(iso?: string) {
+    if (!iso) return '';
+    try {
+      const dt = new Date(iso);
+      return dt.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return iso;
+    }
+  }
+
+  label(st: OrderStatus | string) {
+    return this.statuses.find(s => s.value === st)?.label || st;
+  }
+
+  color(st: OrderStatus | string) {
+    return this.statuses.find(s => s.value === st)?.color || 'neutral';
+  }
+
+  image(o: Order) {
+    const prod = this.state().products.find(p => p.id === o.items[0]?.productId);
+    return prod?.image || 'assets/rosas.svg';
+  }
+
+  materialName(id: string) {
+    return this.state().materials.find(m => m.id === id)?.name || id;
   }
 
   productCost(p: Product) {
-    return p.labor + p.recipe.reduce((n, r) => n + r.quantity * (this.state().materials.find(m => m.id === r.materialId)?.cost || 0), 0);
+    return p.labor + p.recipe.reduce((n, r) => n + r.quantity * r.unitCost, 0);
   }
 
   available(m: Material) {
@@ -616,196 +917,31 @@ export class AppComponent {
     return reserved(this.state(), m.id);
   }
 
-  materialName(id: string) {
-    return this.state().materials.find(m => m.id === id)?.name || id;
-  }
-
-  get filteredMaterials() {
-    return this.state().materials.filter(m => this.search(m.name, this.stockQuery) && (!this.stockCategory || m.category === this.stockCategory) && (!this.onlyLow || available(this.state(), m.id) <= m.minimum));
-  }
-
-  get inventoryValue() {
-    return this.state().materials.reduce((n, m) => n + m.stock * m.cost, 0);
-  }
-
-  openStock(type: 'entrada' | 'merma', id = 'rosa') {
-    const m = this.state().materials.find(m => m.id === id)!;
-    this.movement = { materialId: id, type, quantity: 1, cost: m.cost, reason: '' };
-    this.error.set('');
-    this.stockModal = true;
-  }
-
-  selectStockMaterial() {
-    this.movement.cost = this.state().materials.find(m => m.id === this.movement.materialId)?.cost || 0;
-  }
-
-  saveStock() {
-    try {
-      this.store.commit(moveStock(this.state(), this.movement.materialId, this.movement.type, Number(this.movement.quantity), this.movement.reason, Number(this.movement.cost)));
-      this.stockModal = false;
-      this.notify('Movimiento de inventario registrado.');
-    } catch (e) {
-      this.error.set((e as Error).message);
-    }
-  }
-
-  get paymentOrders() {
-    return this.state().orders.filter(o => o.status !== 'cancelado' && (!this.onlyBalance || balance(o) > 0) && this.search(o.customer + ' ' + o.number, this.paymentQuery));
-  }
-
-  get allPayments() {
-    return this.state().orders.flatMap(o => o.payments.map(p => ({ ...p, order: o.number, customer: o.customer }))).sort((a, b) => b.date.localeCompare(a.date));
-  }
-
-  openExpense() {
-    this.expense = { category: 'Domicilios', description: '', amount: 0, date: dayKey(), method: 'Efectivo' };
-    this.error.set('');
-    this.expenseModal = true;
-  }
-
-  saveExpense() {
-    try {
-      const e = this.expense;
-      if (!e.description.trim() || !e.date || !Number.isFinite(Number(e.amount)) || Number(e.amount) <= 0) {
-        throw new Error('Completa la descripción, fecha y un valor mayor que cero.');
-      }
-      this.store.commit({ ...this.state(), expenses: [{ ...e, id: uid(), amount: Math.round(Number(e.amount)) }, ...this.state().expenses] });
-      this.expenseModal = false;
-      this.notify('Gasto registrado.');
-    } catch (e) {
-      this.error.set((e as Error).message);
-    }
-  }
-
-  get filteredExpenses() {
-    return this.state().expenses.filter(e => e.date >= this.expenseFrom && e.date <= this.expenseTo).sort((a, b) => b.date.localeCompare(a.date));
-  }
-
-  get expenseTotal() {
-    return this.filteredExpenses.reduce((n, e) => n + e.amount, 0);
-  }
-
-  get clients() {
-    const map = new Map<string, { name: string; phone: string; email: string; orders: number; spent: number; balance: number }>();
-    for (const o of this.state().orders) {
-      let c = map.get(o.phone);
-      if (!c) {
-        c = { name: o.customer, phone: o.phone, email: o.email, orders: 0, spent: 0, balance: 0 };
-        map.set(o.phone, c);
-      }
-      c.orders++;
-      if (o.status === 'entregado') c.spent += total(o);
-      if (o.status !== 'cancelado') c.balance += balance(o);
-    }
-    return Array.from(map.values()).filter(c => this.search(c.name + ' ' + c.phone, this.contactQuery));
-  }
-
-  clientOrders(phone: string) {
-    this.query = phone;
-    this.dateFilter = 'all';
-    this.statusFilter = '';
-    this.pendingOnly = false;
-    this.go('pedidos');
-  }
-
-  get suppliers() {
-    return Array.from(new Set(this.state().materials.map(m => m.supplier)))
-      .filter(s => this.search(s, this.contactQuery))
-      .map(name => ({
-        name,
-        materials: this.state().materials.filter(m => m.supplier === name),
-        purchases: this.state().movements.filter(m => m.type === 'entrada' && this.state().materials.find(x => x.id === m.materialId)?.supplier === name).reduce((n, m) => n + m.quantity * m.cost, 0)
-      }));
-  }
-
-  get report() {
-    return summary(this.state(), this.reportFrom, this.reportTo);
-  }
-
-  get rankings() {
-    const rows = new Map<string, { name: string; quantity: number; revenue: number; cost: number }>();
-    for (const o of this.state().orders) {
-      if (o.status !== 'entregado' || !o.deliveredAt) continue;
-      const d = dayKey(new Date(o.deliveredAt));
-      if (d < this.reportFrom || d > this.reportTo) continue;
-      for (const i of o.items) {
-        let p = rows.get(i.productId);
-        if (!p) {
-          p = { name: i.name, quantity: 0, revenue: 0, cost: 0 };
-          rows.set(i.productId, p);
-        }
-        p.quantity += i.quantity;
-        p.revenue += i.price * i.quantity;
-        p.cost += (i.labor + i.recipe.reduce((n, r) => n + r.quantity * r.unitCost, 0)) * i.quantity;
-      }
-    }
-    return Array.from(rows.values()).sort((a, b) => b.quantity - a.quantity);
-  }
-
-  get expenseGroups() {
-    return this.expenseCategories.map(name => ({
-      name,
-      value: this.state().expenses.filter(e => e.category === name && e.date >= this.reportFrom && e.date <= this.reportTo).reduce((n, e) => n + e.amount, 0)
-    })).filter(g => g.value > 0);
-  }
-
-  range(days: number) {
-    this.reportFrom = offsetDay(-days + 1);
-    this.reportTo = dayKey();
-  }
-
-  download(name: string, content: string, type: string) {
-    const url = URL.createObjectURL(new Blob([content], { type }));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
-
-  exportOrders() {
-    const rows = [['Pedido', 'Cliente', 'Destinatario', 'Entrega', 'Hora', 'Estado', 'Total COP', 'Abonos COP', 'Saldo COP'], ...this.filteredOrders.map(o => [o.number, o.customer, o.recipient, o.deliveryDate, o.time, this.label(o.status), total(o), paid(o), balance(o)])];
-    this.download('flore-pedidos.csv', '\uFEFF' + rows.map(row => row.map(csvCell).join(';')).join('\r\n'), 'text/csv;charset=utf-8');
-  }
-
-  exportReport() {
-    const r = this.report;
-    const rows = [['Concepto', 'Valor COP'], ['Ventas entregadas', r.revenue], ['Costo de ventas', r.cost], ['Gastos operativos', r.expenses], ['Merma', r.waste], ['Costo cancelaciones', r.canceledCost], ['Utilidad estimada', r.profit], ['Cobros recibidos', r.collected]];
-    this.download('flore-informe-' + this.reportFrom + '.csv', '\uFEFF' + rows.map(row => row.map(csvCell).join(';')).join('\r\n'), 'text/csv;charset=utf-8');
+  saveBusiness(name: string) {
+    this.store.state.update(s => ({ ...s, business: name }));
+    this.notify('Nombre del negocio actualizado.');
   }
 
   exportData() {
-    this.download('flore-demo-' + this.today + '.json', JSON.stringify({ exportedAt: new Date().toISOString(), note: 'Demo local; NO incluye fotografías.', data: this.state() }, null, 2), 'application/json');
-    this.notify('Registros exportados.');
+    const blob = new Blob([JSON.stringify(this.state(), null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `respaldo_floreria_lacarreta_${this.today}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
-  print() {
-    window.print();
+  reset() {
+    this.store.refreshFromDatabase();
+    this.notify('Datos actualizados desde la base de datos.');
   }
 
-  async reset() {
-    if (!confirm('¿Reiniciar la demo? Se restaurarán los datos originales ficticios.')) return;
-    try {
-      await clearPhotos();
-      this.store.reset();
-      this.notify('Demo reiniciada con datos predeterminados.');
-    } catch (e) {
-      this.notify((e as Error).message);
-    }
+  initials(name: string) {
+    return (name || '').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
   }
 
-  saveBusiness(name: string) {
-    if (!name.trim()) {
-      this.notify('Escribe un nombre para la floristería.');
-      return;
-    }
-    try {
-      this.store.commit({ ...this.state(), business: name.trim().slice(0, 80) });
-      this.notify('Nombre actualizado en la floristería.');
-    } catch (e) {
-      this.notify((e as Error).message);
-    }
+  search(text: string, term: string) {
+    return (text || '').toLowerCase().includes((term || '').toLowerCase().trim());
   }
 }

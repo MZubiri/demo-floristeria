@@ -1,47 +1,93 @@
-import { Injectable, signal } from '@angular/core';
-import { type State } from './domain';
-import { seed } from './seed';
+import { Injectable, signal, inject } from '@angular/core';
+import { type State, type Order, type Material, type Product, type Movement, type Expense, type User, type Role, type Attendance } from './domain';
+import { ApiService } from './api.service';
 
-const KEY = 'flore-demo-state-v1';
+const STORAGE_KEY = 'floreria_lacarreta_state_v2';
+
+export function createEmptyState(): State {
+  return {
+    version: 1,
+    business: 'Floristería La Carreta',
+    orders: [],
+    materials: [],
+    products: [],
+    movements: [],
+    expenses: [],
+    users: [],
+    roles: [],
+    attendances: []
+  };
+}
 
 @Injectable({ providedIn: 'root' })
-export class DemoStore {
-  readonly state = signal<State>(seed());
-  readonly warning = signal('');
+export class AppStore {
+  private readonly api = inject(ApiService);
+  readonly state = signal<State>(createEmptyState());
+  readonly loading = signal<boolean>(false);
+  readonly error = signal<string>('');
+  readonly warning = signal<string>('');
+  readonly isConnectedToDb = signal<boolean>(true);
 
   constructor() {
+    // Si ya existe sesión activa, cargar inmediatamente los datos de la base de datos
+    if (this.api.isLoggedIn) {
+      this.refreshFromDatabase();
+    }
+  }
+
+  async refreshFromDatabase(): Promise<void> {
+    this.loading.set(true);
+    this.error.set('');
+
     try {
-      const raw = localStorage.getItem(KEY);
-      if (raw) {
-        const data = JSON.parse(raw);
-        if (data.version !== 1 || !Array.isArray(data.orders) || !Array.isArray(data.materials) || !Array.isArray(data.products) || !Array.isArray(data.expenses) || !Array.isArray(data.movements)) {
-          throw new Error('invalid');
-        }
-        if (!data.orders.every((o: any) => o.id && Array.isArray(o.items) && Array.isArray(o.payments) && Array.isArray(o.history))) {
-          throw new Error('invalid');
-        }
-        const s = seed();
-        if (!Array.isArray(data.users)) data.users = s.users;
-        if (!Array.isArray(data.roles)) data.roles = s.roles;
-        if (!Array.isArray(data.attendances)) data.attendances = s.attendances;
-        this.state.set(data);
-      }
-    } catch {
-      this.warning.set('No se pudo recuperar la demo guardada. Se muestran datos de ejemplo; exporta o reinicia si es necesario.');
+      const [orders, products, materials, movements, users, roles, attendances, expenses] = await Promise.all([
+        this.api.getOrders().catch(() => []),
+        this.api.getProducts().catch(() => []),
+        this.api.getMaterials().catch(() => []),
+        this.api.getMovements().catch(() => []),
+        this.api.getUsers().catch(() => []),
+        this.api.getRoles().catch(() => []),
+        this.api.getAttendances().catch(() => []),
+        this.api.getExpenses().catch(() => [])
+      ]);
+
+      const newState: State = {
+        version: 1,
+        business: 'Floristería La Carreta',
+        orders,
+        products,
+        materials,
+        movements,
+        users,
+        roles,
+        attendances,
+        expenses
+      };
+
+      this.state.set(newState);
+      this.isConnectedToDb.set(true);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(newState));
+      } catch { }
+    } catch (err) {
+      this.isConnectedToDb.set(false);
+      this.error.set('No se pudo conectar a la base de datos MySQL.');
+    } finally {
+      this.loading.set(false);
     }
   }
 
   commit(next: State) {
-    try {
-      localStorage.setItem(KEY, JSON.stringify(next));
-    } catch {
-      throw new Error('No hay espacio o el navegador bloquea el almacenamiento. La operación no se guardó. Exporta tus datos de demo.');
-    }
     this.state.set(next);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    } catch { }
   }
 
   reset() {
-    this.commit(seed());
-    this.warning.set('');
+    this.refreshFromDatabase();
   }
 }
+
+// Alias for compatibility
+export { AppStore as DemoStore };

@@ -26,7 +26,7 @@
  }
  @if(step===1){
  <div class="form-section-title"><app-icon name="flower"/><div><h3>Un arreglo, mil posibilidades</h3><p>Elige del catálogo o personaliza flores y materiales.</p></div></div>
- @if(draft.consumed){<p class="notice">Los materiales ya se consumieron. En esta demo puedes editar la entrega, tarjeta y notas, pero no la receta.</p>}
+ @if(draft.consumed){<p class="notice">Los materiales ya se consumieron del inventario. Puedes editar los datos de entrega, tarjeta y notas.</p>}
  <fieldset [disabled]="draft.consumed" class="plain-fieldset">
  <div class="add-line"><label class="grow">Producto del catálogo<select name="product" [(ngModel)]="productId">@for(p of state.products;track p.id){<option [value]="p.id">{{p.name}} · {{money(p.price)}}</option>}</select></label><button type="button" class="button primary" (click)="add()"><app-icon name="plus"/>Agregar</button></div>
  <button type="button" class="text-button" (click)="custom()">+ Crear arreglo personalizado</button>

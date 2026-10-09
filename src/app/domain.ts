@@ -83,7 +83,7 @@ export function saveOrder(state:State,order:Order):State {
  validateOrder(order);
  const next=structuredClone(state), index=next.orders.findIndex(o=>o.id===order.id), current=next.orders[index];
  if(current && ['entregado','cancelado'].includes(current.status)) throw new Error('El pedido está cerrado.');
- if(current?.consumed && JSON.stringify(current.items)!==JSON.stringify(order.items)) throw new Error('Los materiales ya fueron consumidos. En esta demo solo puedes editar entrega, tarjeta y notas.');
+ if(current?.consumed && JSON.stringify(current.items)!==JSON.stringify(order.items)) throw new Error('Los materiales ya fueron consumidos. Solo puedes editar entrega, tarjeta y notas.');
  const copy=structuredClone(order);
  if(current) {
   copy.history=current.history.concat({date:new Date().toISOString(),title:'Pedido actualizado',note:current.deliveryDate!==copy.deliveryDate || current.time!==copy.time?'Entrega reprogramada: '+copy.deliveryDate+' '+copy.time:'Datos, personalización o entrega actualizados.'});
@@ -127,9 +127,9 @@ export function transition(state:State,id:string,target:OrderStatus,receipt='',n
   if(!receipt.trim()) throw new Error('Indica quién recibió el pedido.');
   o.deliveredAt=now; o.receivedBy=receipt.trim(); o.deliveryNote=note;
  }
- if(target==='cancelado' && paid(o)>0) throw new Error('Este pedido tiene abonos. La devolución bancaria requiere el sistema de producción; no se cancela ni se borra el dinero en esta demo.');
+ if(target==='cancelado' && paid(o)>0) throw new Error('Este pedido tiene abonos registrados. Realiza primero el ajuste correspondiente.');
  o.status=target;
- o.history.push({date:now,title:STATUSES.find(s=>s.value===target)!.label,note:note || (target==='cancelado' && o.consumed?'Los materiales consumidos no vuelven a inventario.':'Actualizado por Administradora demo')});
+ o.history.push({date:now,title:STATUSES.find(s=>s.value===target)!.label,note:note || (target==='cancelado' && o.consumed?'Los materiales consumidos no vuelven a inventario.':'Actualizado en sistema')});
  return next;
 }
 export function moveStock(state:State,id:string,type:'entrada'|'merma',quantity:number,reason:string,cost?:number):State {
@@ -150,7 +150,7 @@ export function newLine(p:Product,materials:Material[]):Line {
 export function blankOrder(state:State):Order {
  const max=state.orders.reduce((n,o)=>Math.max(n,Number(o.number.replace(/\D/g,''))||0),1000);
  const now=new Date().toISOString();
- return {id:uid(),number:'FL-'+(max+1),createdAt:now,customer:'',phone:'',email:'',recipient:'',recipientPhone:'',address:'',area:'',deliveryDate:dayKey(),time:'15:00',deliveryMethod:'Domicilio',priority:'Normal',items:[],discount:0,shipping:12000,hasCard:true,cardMessage:'',notes:'',status:'recibido',payments:[],history:[{date:now,title:'Pedido creado',note:'Administradora demo'}],consumed:false};
+ return {id:uid(),number:'FL-'+(max+1),createdAt:now,customer:'',phone:'',email:'',recipient:'',recipientPhone:'',address:'',area:'',deliveryDate:dayKey(),time:'15:00',deliveryMethod:'Domicilio',priority:'Normal',items:[],discount:0,shipping:12000,hasCard:true,cardMessage:'',notes:'',status:'recibido',payments:[],history:[{date:now,title:'Pedido creado',note:'Floristería La Carreta'}],consumed:false};
 }
 export function inPeriod(date:string,from:string,to:string):boolean { const day=dayKey(new Date(date)); return day>=from && day<=to; }
 export function summary(state:State,from:string,to:string) {
