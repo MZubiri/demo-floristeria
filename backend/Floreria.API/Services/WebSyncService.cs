@@ -592,6 +592,54 @@ public class WebSyncService : IWebSyncService
         return null;
     }
 
+    public async Task<string?> UploadImageToWebAsync(Stream fileStream, string fileName, string contentType)
+    {
+        try
+        {
+            var token = await GetWebAuthTokenAsync();
+            if (string.IsNullOrEmpty(token)) return null;
+
+            using var content = new MultipartFormDataContent();
+            var streamContent = new StreamContent(fileStream);
+            streamContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+            content.Add(streamContent, "file", fileName);
+
+            using var req = new HttpRequestMessage(HttpMethod.Post, $"{BaseUrl}/api/upload")
+            {
+                Content = content
+            };
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var res = await _httpClient.SendAsync(req);
+            if (res.IsSuccessStatusCode)
+            {
+                var jsonStr = await res.Content.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(jsonStr);
+                if (doc.RootElement.TryGetProperty("url", out var urlProp))
+                {
+                    var relUrl = urlProp.GetString();
+                    if (!string.IsNullOrEmpty(relUrl))
+                    {
+                        var fullUrl = relUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+                            ? relUrl
+                            : $"{BaseUrl}{relUrl}";
+                        _logger.LogInformation("Imagen subida a la tienda web exitosamente: {Url}", fullUrl);
+                        return fullUrl;
+                    }
+                }
+            }
+            else
+            {
+                _logger.LogWarning("Respuesta fallida de la tienda web al subir imagen: {Status}", res.StatusCode);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error al subir imagen a la tienda web: {Msg}", ex.Message);
+        }
+        return null;
+    }
+
     public async Task<SyncStatusDto> GetStatusAsync()
     {
         bool isConnected = false;

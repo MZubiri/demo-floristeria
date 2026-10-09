@@ -40,18 +40,22 @@
           <button type="button" class="quick-btn" (click)="quickLogin('admin@floristeria.com', 'admin123')">
             <strong>Administrador</strong>
             <small>admin@floristeria.com</small>
+            <span style="font-size:11px;color:#555;margin-top:2px;display:block;">Clave: admin123</span>
           </button>
           <button type="button" class="quick-btn" (click)="quickLogin('laura@floristeria.com', 'laura123')">
             <strong>Cajera / Mostrador</strong>
             <small>laura@floristeria.com</small>
+            <span style="font-size:11px;color:#555;margin-top:2px;display:block;">Clave: laura123</span>
           </button>
           <button type="button" class="quick-btn" (click)="quickLogin('carlos@floristeria.com', 'carlos123')">
             <strong>Florista / Taller</strong>
             <small>carlos@floristeria.com</small>
+            <span style="font-size:11px;color:#555;margin-top:2px;display:block;">Clave: carlos123</span>
           </button>
           <button type="button" class="quick-btn" (click)="quickLogin('andres@floristeria.com', 'andres123')">
             <strong>Repartidor</strong>
             <small>andres@floristeria.com</small>
+            <span style="font-size:11px;color:#555;margin-top:2px;display:block;">Clave: andres123</span>
           </button>
         </div>
       </div>
@@ -77,10 +81,10 @@
       <strong>{{pageTitle}}</strong>
     </div>
     <div class="topbar-actions">
-      <button class="sync-btn" [class.syncing]="syncingWeb()" (click)="syncWebShop()" title="Sincronizar pedidos e inventario con la página web en vivo (https://floreria.molinazdev.lat)">
-        <app-icon name="refresh"/>
-        <span>{{syncingWeb() ? 'Sincronizando...' : 'Sincronizar Web'}}</span>
-      </button>
+      <div class="local-status" style="background:rgba(46,79,40,0.08);border:1px solid rgba(46,79,40,0.25);color:#2e4f28;" title="Sincronización continua en segundo plano con floreria.molinazdev.lat">
+        <span class="live-dot" style="background:#2e4f28;"></span>
+        <span>Sincronizado en vivo</span>
+      </div>
       <button class="button primary small" style="background:#2e4f28;color:#fff;" (click)="openPos()" aria-label="Registrar venta directa en local">
         <app-icon name="pos"/>
         Venta Local
@@ -277,7 +281,7 @@
  @if(view()==='ajustes'){
  <section class="page-heading"><div><div class="eyebrow">SISTEMA INTEGRAL</div><h1>Configuración y Conexiones</h1><p>Parámetros del negocio, servidor y sincronización en la nube.</p></div></section>
  <div class="settings-grid"><section class="panel"><div class="section-heading"><div><h2>Floristería La Carreta</h2><p>Parámetros generales de la empresa.</p></div><app-icon name="flower"/></div><label>Nombre del negocio<input #business [value]="state().business" maxlength="80"></label><button class="button primary" (click)="saveBusiness(business.value)">Guardar nombre</button><dl class="settings-list"><div><dt>Moneda</dt><dd>Peso colombiano · COP</dd></div><div><dt>Usuario actual</dt><dd>{{currentUser()?.name || 'Administrador'}} ({{currentUser()?.roleName || 'Admin'}})</dd></div><div><dt>Base de datos</dt><dd>MySQL 8.0 (gestion_floreria)</dd></div><div><dt>Backend</dt><dd>ASP.NET Core 9.0 REST API</dd></div></dl></section>
- <section class="panel"><div class="section-heading"><div><h2>Sincronización Tienda Web</h2><p>Conexión directa con la tienda virtual desplegada.</p></div><app-icon name="stock"/></div><p class="notice">La tienda web en https://floreria.molinazdev.lat sincroniza en tiempo real sus pedidos nuevos y su catálogo con este sistema de gestión.</p><button class="button primary full" [disabled]="syncingWeb()" (click)="syncWebShop()"><app-icon name="refresh"/>{{syncingWeb() ? 'Sincronizando...' : 'Sincronizar ahora con la web'}}</button><hr><button class="button secondary full" (click)="exportData()"><app-icon name="download"/>Exportar respaldo local JSON</button></section>
+ <section class="panel"><div class="section-heading"><div><h2>Sincronización Tienda Web</h2><p>Conexión directa en tiempo real con la tienda virtual.</p></div><app-icon name="stock"/></div><div style="background:rgba(46,79,40,0.08);border:1px solid rgba(46,79,40,0.25);border-radius:8px;padding:12px;margin-bottom:14px;color:#2e4f28;font-size:0.88rem;display:flex;align-items:center;gap:10px;"><span class="live-dot" style="background:#2e4f28;"></span><span><strong>Sincronización Continua Activa:</strong> Todos los pedidos entrantes y los arreglos florales se actualizan automáticamente en tiempo real entre la tienda web (<strong>floreria.molinazdev.lat</strong>) y este panel ERP sin necesidad de acciones manuales.</span></div><button class="button secondary full" (click)="exportData()"><app-icon name="download"/>Exportar respaldo local JSON</button></section>
  <section class="panel"><h2>Acceso Móvil / Web App</h2><ol class="instruction-list"><li>Abre la aplicación web desde cualquier navegador móvil (Safari o Chrome).</li><li>Para acceso directo como app, usa Compartir → Añadir a pantalla de inicio.</li><li>Puedes registrar ventas de mostrador, tomar fotografías y marcar asistencia desde el teléfono.</li></ol></section>
  <section class="panel production-note"><span class="eyebrow">ARQUITECTURA DE PRODUCCIÓN</span><h2>Floristería La Carreta</h2><p>Sistema empresarial conectado con base de datos relacional MySQL y sincronización de comercio electrónico.</p><dl class="settings-list"><div><dt>Tienda Web</dt><dd>https://floreria.molinazdev.lat</dd></div><div><dt>API Local</dt><dd>http://localhost:5000/api</dd></div><div><dt>Frontend</dt><dd>Angular 19 Standalone</dd></div></dl></section></div>
  }
@@ -464,13 +468,42 @@
       <input name="prodPrice" type="number" min="0" step="1000" [(ngModel)]="productForm.price" required>
      </label>
     </div>
-    <div class="form-grid">
-     <label>Mano de obra estimada COP
-      <input name="prodLabor" type="number" min="0" step="500" [(ngModel)]="productForm.labor">
-     </label>
-     <label>URL de Fotografía
-      <input name="prodImage" [(ngModel)]="productForm.image" placeholder="https://... o ruta de imagen">
-     </label>
+    <label>Mano de obra estimada COP
+     <input name="prodLabor" type="number" min="0" step="500" [(ngModel)]="productForm.labor">
+    </label>
+
+    <!-- SUBIDA DIRECTA DE FOTOGRAFÍA -->
+    <div style="margin-top:12px;margin-bottom:12px;">
+     <label style="margin-bottom:6px;display:block;font-weight:600;font-size:0.88rem;">Fotografía del Arreglo Floral *</label>
+     @if(productForm.image){
+      <div style="display:flex;align-items:center;gap:14px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;padding:12px;">
+       <img [src]="productForm.image" alt="Vista previa del arreglo" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid #94a3b8;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+       <div style="flex:1;">
+        <span style="display:block;font-size:0.85rem;font-weight:600;color:#2e4f28;margin-bottom:3px;">Fotografía cargada y lista</span>
+        <small style="color:#64748b;display:block;word-break:break-all;font-size:0.75rem;">{{productForm.image}}</small>
+       </div>
+       <div style="display:flex;gap:8px;">
+        <button class="button secondary small" type="button" (click)="prodFileInput.click()" [disabled]="uploadingProductImage()">
+         <app-icon name="camera"/>Cambiar foto
+        </button>
+        <button class="button secondary small" type="button" style="color:#b3261e;" (click)="removeProductImage()" [disabled]="uploadingProductImage()">
+         <app-icon name="trash"/>Quitar
+        </button>
+       </div>
+      </div>
+     } @else {
+      <div (click)="prodFileInput.click()" style="border:2px dashed #94a3b8;border-radius:10px;padding:20px 16px;text-align:center;cursor:pointer;background:#fafafa;transition:all 0.2s ease;">
+       <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+        <app-icon name="camera" style="width:36px;height:36px;color:#2e4f28;"/>
+        <strong style="color:#1e293b;font-size:0.92rem;">Haz clic para subir una foto directamente</strong>
+        <span style="font-size:0.8rem;color:#64748b;">Selecciona un archivo (JPG, PNG o WEBP) desde tu computadora o teléfono</span>
+        @if(uploadingProductImage()){
+         <span style="color:#2e4f28;font-weight:600;font-size:0.85rem;margin-top:6px;">Subiendo y procesando imagen en el servidor...</span>
+        }
+       </div>
+      </div>
+     }
+     <input #prodFileInput hidden type="file" accept="image/png,image/jpeg,image/webp,image/jpg" (change)="onProductImageSelected($event)">
     </div>
     <label>Descripción comercial
      <textarea name="prodDesc" [(ngModel)]="productForm.description" rows="2" placeholder="Descripción atractiva para la tienda web y clientes"></textarea>

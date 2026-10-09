@@ -197,6 +197,27 @@ export class ApiService {
     });
   }
 
+  async uploadImage(file: File): Promise<{ url: string; fileName: string; message: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const headers: Record<string, string> = {};
+    if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
+    const res = await fetch(`${this.baseUrl}/upload`, {
+      method: 'POST',
+      headers,
+      body: formData
+    });
+    if (!res.ok) {
+      let msg = 'Error al subir la fotografía.';
+      try {
+        const err = await res.json();
+        if (err.message) msg = err.message;
+      } catch { }
+      throw new Error(msg);
+    }
+    return res.json();
+  }
+
   // ==========================================
   // INVENTARIO Y MATERIALES
   // ==========================================

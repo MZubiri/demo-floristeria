@@ -34,6 +34,7 @@ public interface IWebSyncService
     Task<bool> DeleteProductFromWebAsync(string productId);
     Task<bool> PushOrderStatusAsync(string orderCode, string newStatus);
     Task<string?> PushOrderToWebAsync(Floreria.API.Models.Order order);
+    Task<string?> UploadImageToWebAsync(Stream fileStream, string fileName, string contentType);
     Task<SyncStatusDto> GetStatusAsync();
 }
 

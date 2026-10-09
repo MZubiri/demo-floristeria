@@ -1,4 +1,4 @@
-import { Component, computed, HostListener, inject, signal, OnInit } from '@angular/core';
+import { Component, computed, HostListener, inject, signal, OnInit, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { IconComponent } from './icon.component';
 import { DialogComponent } from './dialog.component';
@@ -22,7 +22,7 @@ type View = 'inicio' | 'pedidos' | 'agenda' | 'catalogo' | 'inventario' | 'asist
   imports: [FormsModule, IconComponent, DialogComponent, PhotosComponent, OrderFormComponent],
   templateUrl: './app.component.html'
 })
-export class AppComponent implements OnInit {
+export class AppComponent implements OnInit, OnDestroy {
   readonly store = inject(AppStore);
   readonly apiService = inject(ApiService);
   readonly state = this.store.state;
@@ -172,12 +172,28 @@ export class AppComponent implements OnInit {
   };
   productRecipeMaterialId = '';
   productRecipeQty = 1;
+  uploadingProductImage = signal(false);
+  private autoSyncInterval: any = null;
 
   ngOnInit() {
     if (this.isLoggedIn()) {
       this.store.refreshFromDatabase();
       this.checkWebSyncStatus();
     }
+    this.startAutoSync();
+  }
+
+  startAutoSync() {
+    if (this.autoSyncInterval) clearInterval(this.autoSyncInterval);
+    this.autoSyncInterval = setInterval(() => {
+      if (this.isLoggedIn()) {
+        this.store.refreshFromDatabase();
+      }
+    }, 15000);
+  }
+
+  ngOnDestroy() {
+    if (this.autoSyncInterval) clearInterval(this.autoSyncInterval);
   }
 
   async doLogin() {
@@ -536,6 +552,33 @@ export class AppComponent implements OnInit {
     } catch (e) {
       this.error.set((e as Error).message);
     }
+  }
+
+  async onProductImageSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || !input.files.length) return;
+    const file = input.files[0];
+
+    if (file.size > 10 * 1024 * 1024) {
+      this.notify('La imagen excede el límite de 10 MB.');
+      return;
+    }
+
+    this.uploadingProductImage.set(true);
+    try {
+      const res = await this.apiService.uploadImage(file);
+      this.productForm.image = res.url;
+      this.notify('Fotografía subida con éxito y alojada para la tienda web.');
+    } catch (e) {
+      this.notify('Error al subir la imagen: ' + (e as Error).message);
+    } finally {
+      this.uploadingProductImage.set(false);
+      input.value = '';
+    }
+  }
+
+  removeProductImage() {
+    this.productForm.image = '';
   }
 
   // --- EXPORTACIONES EXCEL ---

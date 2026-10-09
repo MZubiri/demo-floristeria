@@ -24,22 +24,35 @@ public static class DbInitializer
             await context.SaveChangesAsync();
         }
 
-        // 2. Users
-        if (!await context.Users.AnyAsync())
+        // 2. Users (Seed & Ensure all roles exist)
+        var defaultUsers = new (string Name, string Email, string Pass, string Phone, int RoleId)[]
         {
-            var adminPassword = BCrypt.Net.BCrypt.HashPassword("admin123");
-            var workerPassword = BCrypt.Net.BCrypt.HashPassword("florer123");
+            ("Elena Castro (Admin)", "admin@floristeria.com", "admin123", "+57 300 123 4567", 1),
+            ("Laura Gómez (Caja)", "laura@floristeria.com", "laura123", "+57 310 987 6543", 2),
+            ("Carlos Mendoza (Florista)", "carlos@floristeria.com", "carlos123", "+57 311 234 5678", 3),
+            ("Andrés Martínez (Repartidor)", "andres@floristeria.com", "andres123", "+57 315 456 7890", 4),
+            ("Valentina Rojas (Florista)", "valentina@floristeria.com", "valentina123", "+57 320 345 6789", 3),
+            ("Mateo Silva (Repartidor)", "mateo@floristeria.com", "mateo123", "+57 312 654 9870", 4)
+        };
 
-            var users = new List<User>
+        foreach (var def in defaultUsers)
+        {
+            var existing = await context.Users.FirstOrDefaultAsync(u => u.Email == def.Email);
+            if (existing == null)
             {
-                new() { Name = "Elena Castro (Admin)", Email = "admin@floristeria.com", PasswordHash = adminPassword, Phone = "+57 300 123 4567", RoleId = 1, IsActive = true },
-                new() { Name = "Carlos Mendoza (Caja)", Email = "carlos@floristeria.com", PasswordHash = workerPassword, Phone = "+57 311 234 5678", RoleId = 2, IsActive = true },
-                new() { Name = "Valentina Rojas (Florista)", Email = "valentina@floristeria.com", PasswordHash = workerPassword, Phone = "+57 320 345 6789", RoleId = 3, IsActive = true },
-                new() { Name = "Mateo Silva (Repartidor)", Email = "mateo@floristeria.com", PasswordHash = workerPassword, Phone = "+57 315 456 7890", RoleId = 4, IsActive = true }
-            };
-            await context.Users.AddRangeAsync(users);
-            await context.SaveChangesAsync();
+                await context.Users.AddAsync(new User
+                {
+                    Name = def.Name,
+                    Email = def.Email,
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(def.Pass),
+                    Phone = def.Phone,
+                    RoleId = def.RoleId,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
         }
+        await context.SaveChangesAsync();
 
         // 3. Materials
         if (!await context.Materials.AnyAsync())
