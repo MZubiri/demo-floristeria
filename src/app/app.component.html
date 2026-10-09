@@ -284,9 +284,9 @@
 
  @if(view()==='ajustes'){
  <section class="page-heading"><div><div class="eyebrow">SISTEMA INTEGRAL</div><h1>Configuración y Conexiones</h1><p>Parámetros del negocio, servidor y sincronización en la nube.</p></div></section>
- <div class="settings-grid"><section class="panel"><div class="section-heading"><div><h2>Floristería La Carreta</h2><p>Parámetros generales de la empresa.</p></div><app-icon name="flower"/></div><label>Nombre del negocio<input #business [value]="state().business" maxlength="80"></label><button class="button primary" (click)="saveBusiness(business.value)">Guardar nombre</button><dl class="settings-list"><div><dt>Moneda</dt><dd>Peso colombiano · COP</dd></div><div><dt>Usuario actual</dt><dd>{{currentUser()?.name || 'Administrador'}} ({{currentUser()?.roleName || 'Admin'}})</dd></div><div><dt>Base de datos</dt><dd>MySQL 8.0 (gestion_floreria)</dd></div><div><dt>Backend</dt><dd>ASP.NET Core 9.0 REST API</dd></div></dl></section>
+ <div class="settings-grid"> <section class="panel"><div class="section-heading"><div><h2>Floristería La Carreta</h2><p>Parámetros generales de la empresa.</p></div><app-icon name="flower"/></div><label>Nombre del negocio<input #business [value]="state().business" maxlength="80"></label><button class="button primary" (click)="saveBusiness(business.value)">Guardar nombre</button><dl class="settings-list"><div><dt>Moneda</dt><dd>Peso colombiano · COP</dd></div><div><dt>Usuario actual</dt><dd>{{currentUser()?.name || 'Administrador'}} ({{currentUser()?.roleName || 'Admin'}})</dd></div><div><dt>Base de datos</dt><dd>MySQL 8.0 (floreria_lacarreta_db)</dd></div><div><dt>Backend</dt><dd>ASP.NET Core 9.0 REST API</dd></div></dl></section>
  <section class="panel"><div class="section-heading"><div><h2>Sincronización Tienda Web</h2><p>Conexión directa en tiempo real con la tienda virtual.</p></div><app-icon name="stock"/></div><div style="background:rgba(46,79,40,0.08);border:1px solid rgba(46,79,40,0.25);border-radius:8px;padding:12px;margin-bottom:14px;color:#2e4f28;font-size:0.88rem;display:flex;align-items:center;gap:10px;"><span class="live-dot" style="background:#2e4f28;"></span><span><strong>Sincronización Continua Activa:</strong> Todos los pedidos entrantes y los arreglos florales se actualizan automáticamente en tiempo real entre la tienda web (<strong>floreria.molinazdev.lat</strong>) y este panel ERP sin necesidad de acciones manuales.</span></div><button class="button secondary full" (click)="exportData()"><app-icon name="download"/>Exportar respaldo local JSON</button></section>
- <section class="panel"><div class="section-heading"><div><h2>Copias de Seguridad (MySQL)</h2><p>Respaldos automáticos diarios y descargas directas en .sql.</p></div><app-icon name="download"/></div><div style="background:rgba(46,79,40,0.08);border:1px solid rgba(46,79,40,0.25);border-radius:8px;padding:12px;margin-bottom:14px;color:#2e4f28;font-size:0.88rem;"><p style="margin:0 0 4px 0;"><strong>Respaldo Automático Diario:</strong> Se genera un volcado íntegro programado todas las madrugadas en segundo plano.</p><small style="color:#555;">Servidor MySQL · Base de datos: <code>gestion_floreria</code></small></div><div class="button-row" style="margin-bottom:14px;"><button class="button primary small" type="button" (click)="createBackup()" [disabled]="creatingBackup"><app-icon name="check"/>{{creatingBackup ? 'Generando copia...' : 'Generar Respaldo Ahora'}}</button><button class="button secondary small" type="button" (click)="loadBackups()" [disabled]="loadingBackups"><app-icon name="refresh"/>Actualizar lista</button></div><div class="table-scroll" style="max-height:200px;"><table><thead><tr><th>Archivo .sql</th><th>Tamaño</th><th>Acción</th></tr></thead><tbody>@for(b of backups; track b.fileName){<tr><td><code>{{b.fileName}}</code><small>{{dateTime(b.createdAt)}}</small></td><td>{{formatFileSize(b.fileSizeBytes)}}</td><td><button class="button secondary small" type="button" (click)="downloadBackup(b.fileName)"><app-icon name="download"/>Descargar</button></td></tr>}@empty{<tr><td colspan="3" style="text-align:center;padding:16px;color:#888;">No hay respaldos registrados. Haz clic en "Generar Respaldo Ahora".</td></tr>}</tbody></table></div></section>
+ <section class="panel"><div class="section-heading"><div><h2>Copias de Seguridad (MySQL)</h2><p>Respaldos automáticos diarios y descargas directas en .sql.</p></div><app-icon name="download"/></div><div style="background:rgba(46,79,40,0.08);border:1px solid rgba(46,79,40,0.25);border-radius:8px;padding:12px;margin-bottom:14px;color:#2e4f28;font-size:0.88rem;"><p style="margin:0 0 4px 0;"><strong>Respaldo Automático Diario:</strong> Se genera un volcado íntegro programado todas las madrugadas en segundo plano.</p><small style="color:#555;">Servidor MySQL · Base de datos: <code>floreria_lacarreta_db</code></small></div><div class="button-row" style="margin-bottom:14px;"><button class="button primary small" type="button" (click)="createBackup()" [disabled]="creatingBackup()"><app-icon name="check"/>{{creatingBackup() ? 'Generando copia...' : 'Generar Respaldo Ahora'}}</button><button class="button secondary small" type="button" (click)="loadBackups()" [disabled]="loadingBackups()"><app-icon name="refresh"/>Actualizar lista</button></div><div class="table-scroll" style="max-height:200px;"><table><thead><tr><th>Archivo .sql</th><th>Tamaño</th><th>Acción</th></tr></thead><tbody>@for(b of backups(); track b.fileName){<tr><td><code>{{b.fileName}}</code><small>{{dateTime(b.createdAt)}}</small></td><td>{{formatFileSize(b.fileSizeBytes)}}</td><td><button class="button secondary small" type="button" (click)="downloadBackup(b.fileName)"><app-icon name="download"/>Descargar</button></td></tr>}@empty{<tr><td colspan="3" style="text-align:center;padding:16px;color:#888;">No hay respaldos registrados. Haz clic en "Generar Respaldo Ahora".</td></tr>}</tbody></table></div></section>
  <section class="panel"><h2>Acceso Móvil / Web App</h2><ol class="instruction-list"><li>Abre la aplicación web desde cualquier navegador móvil (Safari o Chrome).</li><li>Para acceso directo como app, usa Compartir → Añadir a pantalla de inicio.</li><li>Puedes registrar ventas de mostrador, tomar fotografías y marcar asistencia desde el teléfono.</li></ol></section>
  <section class="panel production-note"><span class="eyebrow">ARQUITECTURA DE PRODUCCIÓN</span><h2>Floristería La Carreta</h2><p>Sistema empresarial conectado con base de datos relacional MySQL y sincronización de comercio electrónico.</p><dl class="settings-list"><div><dt>Tienda Web</dt><dd>https://floreria.molinazdev.lat</dd></div><div><dt>API Local</dt><dd>http://localhost:5000/api</dd></div><div><dt>Frontend</dt><dd>Angular 19 Standalone</dd></div></dl></section></div>
  }
@@ -591,21 +591,26 @@
       </div>
 
       @if(cashRegisterTab==='cierre'){
-        @if(cashRegisterSummary){
+        @if(loadingCashRegister()){
+          <div style="text-align:center;padding:48px 16px;color:#2e4f28;">
+            <p style="font-size:16px;font-weight:600;margin:0 0 6px;">Calculando ventas y balances del día...</p>
+            <small style="color:#78867a;">Consultando base de datos en tiempo real.</small>
+          </div>
+        } @else if(cashRegisterSummary(); as crs){
           <div class="metrics three-metrics" style="margin-bottom:18px;">
             <article class="metric">
               <span>Ventas en Efectivo</span>
-              <strong>{{money(cashRegisterSummary.cashSales)}}</strong>
-              <small>{{cashRegisterSummary.orderCount}} pedidos registrados</small>
+              <strong>{{money(crs.cashSales)}}</strong>
+              <small>{{crs.orderCount}} pedidos registrados</small>
             </article>
             <article class="metric">
               <span>Transferencias / Tarjetas</span>
-              <strong>{{money(cashRegisterSummary.electronicSales)}}</strong>
+              <strong>{{money(crs.electronicSales)}}</strong>
               <small>Nequi, Bancolombia, Tarjeta</small>
             </article>
             <article class="metric featured">
               <span>Efectivo Esperado en Caja</span>
-              <strong>{{money(cashRegisterSummary.expectedCash)}}</strong>
+              <strong>{{money(crs.expectedCash)}}</strong>
               <small>Fondo inicial + Ventas efec. − Gastos efec.</small>
             </article>
           </div>
@@ -630,6 +635,11 @@
               <textarea [(ngModel)]="cashRegisterNotes" rows="2" placeholder="Ej. Billetes en buen estado, entregado a administración"></textarea>
             </label>
           </div>
+        } @else {
+          <div style="text-align:center;padding:36px 16px;color:#78867a;">
+            <p>No se pudo calcular el resumen de caja.</p>
+            <button class="button secondary small" type="button" (click)="openCashRegisterModal()">Reintentar</button>
+          </div>
         }
       } @else {
         <!-- HISTORIAL DE ARQUEOS -->
@@ -647,7 +657,7 @@
               </tr>
             </thead>
             <tbody>
-              @for(c of cashRegisterClosures; track c.id){
+              @for(c of cashRegisterClosures(); track c.id){
                 <tr>
                   <td><strong>{{dateTime(c.closedAt)}}</strong></td>
                   <td>{{c.cashierName}}</td>
@@ -674,9 +684,9 @@
     <footer class="modal-footer">
       <button class="button secondary" type="button" (click)="cashRegisterModal=false">Cerrar</button>
       @if(cashRegisterTab==='cierre'){
-        <button class="button primary" type="button" (click)="submitCashRegisterClosure()" [disabled]="closingCashRegister">
+        <button class="button primary" type="button" (click)="submitCashRegisterClosure()" [disabled]="closingCashRegister() || loadingCashRegister() || !cashRegisterSummary()">
           <app-icon name="check"/>
-          <span>{{closingCashRegister ? 'Guardando Cierre...' : 'Registrar y Cerrar Caja'}}</span>
+          <span>{{closingCashRegister() ? 'Guardando Cierre...' : 'Registrar y Cerrar Caja'}}</span>
         </button>
       }
     </footer>

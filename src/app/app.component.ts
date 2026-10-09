@@ -1,4 +1,4 @@
-import { Component, computed, HostListener, inject, signal, OnInit, OnDestroy } from '@angular/core';
+import { Component, computed, HostListener, inject, signal, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { IconComponent } from './icon.component';
 import { DialogComponent } from './dialog.component';
@@ -24,6 +24,7 @@ type View = 'inicio' | 'pedidos' | 'agenda' | 'catalogo' | 'inventario' | 'asist
   templateUrl: './app.component.html'
 })
 export class AppComponent implements OnInit, OnDestroy {
+  private readonly cdr = inject(ChangeDetectorRef);
   readonly store = inject(AppStore);
   readonly apiService = inject(ApiService);
   readonly state = this.store.state;
@@ -188,22 +189,23 @@ export class AppComponent implements OnInit, OnDestroy {
   // ==========================================
   cashRegisterModal = false;
   cashRegisterTab: 'cierre' | 'historial' = 'cierre';
-  cashRegisterSummary: CashRegisterSummary | null = null;
+  readonly cashRegisterSummary = signal<CashRegisterSummary | null>(null);
+  readonly loadingCashRegister = signal<boolean>(false);
   cashRegisterActualCash = 0;
   cashRegisterNotes = '';
-  cashRegisterClosures: CashRegisterClosure[] = [];
-  closingCashRegister = false;
+  readonly cashRegisterClosures = signal<CashRegisterClosure[]>([]);
+  readonly closingCashRegister = signal<boolean>(false);
 
   get cashDifference(): number {
-    return (this.cashRegisterActualCash || 0) - (this.cashRegisterSummary?.expectedCash || 0);
+    return (this.cashRegisterActualCash || 0) - (this.cashRegisterSummary()?.expectedCash || 0);
   }
 
   // ==========================================
   // COPIAS DE SEGURIDAD MYSQL
   // ==========================================
-  backups: BackupInfo[] = [];
-  loadingBackups = false;
-  creatingBackup = false;
+  readonly backups = signal<BackupInfo[]>([]);
+  readonly loadingBackups = signal<boolean>(false);
+  readonly creatingBackup = signal<boolean>(false);
 
   ngOnInit() {
     if (this.isLoggedIn()) {
@@ -1147,38 +1149,50 @@ export class AppComponent implements OnInit, OnDestroy {
     this.cashRegisterModal = true;
     this.cashRegisterTab = 'cierre';
     this.error.set('');
+    this.loadingCashRegister.set(true);
+    this.cdr.markForCheck();
     try {
-      this.cashRegisterSummary = await this.apiService.getCashRegisterSummary(this.today);
-      this.cashRegisterActualCash = this.cashRegisterSummary?.expectedCash || 0;
-      this.cashRegisterClosures = await this.apiService.getCashRegisterHistory();
+      const summary = await this.apiService.getCashRegisterSummary(this.today);
+      this.cashRegisterSummary.set(summary);
+      this.cashRegisterActualCash = summary?.expectedCash || 0;
+      const history = await this.apiService.getCashRegisterHistory();
+      this.cashRegisterClosures.set(history);
     } catch (e) {
       this.error.set('No se pudo cargar el resumen de caja: ' + (e as Error).message);
+    } finally {
+      this.loadingCashRegister.set(false);
+      this.cdr.markForCheck();
     }
   }
 
   async submitCashRegisterClosure() {
-    if (!this.cashRegisterSummary) return;
-    this.closingCashRegister = true;
+    const summary = this.cashRegisterSummary();
+    if (!summary) return;
+    this.closingCashRegister.set(true);
     this.error.set('');
+    this.cdr.markForCheck();
     try {
       const payload = {
         date: this.today,
-        openingBalance: this.cashRegisterSummary.openingBalance || 0,
+        openingBalance: summary.openingBalance || 0,
         actualCash: Number(this.cashRegisterActualCash) || 0,
         cashierName: this.currentUser()?.name || 'Cajero Principal',
         notes: this.cashRegisterNotes
       };
       const created = await this.apiService.closeCashRegister(payload);
       this.notify('¡Cierre de caja guardado con éxito!');
-      this.cashRegisterClosures = await this.apiService.getCashRegisterHistory();
+      const history = await this.apiService.getCashRegisterHistory();
+      this.cashRegisterClosures.set(history);
       this.cashRegisterTab = 'historial';
+      this.cdr.markForCheck();
       if (confirm('¿Deseas imprimir el comprobante térmico del cierre de caja?')) {
         this.printClosureTicket(created);
       }
     } catch (e) {
       this.error.set((e as Error).message);
     } finally {
-      this.closingCashRegister = false;
+      this.closingCashRegister.set(false);
+      this.cdr.markForCheck();
     }
   }
 
@@ -1199,18 +1213,22 @@ export class AppComponent implements OnInit, OnDestroy {
   // COPIAS DE SEGURIDAD MYSQL
   // ==========================================
   async loadBackups() {
-    this.loadingBackups = true;
+    this.loadingBackups.set(true);
+    this.cdr.markForCheck();
     try {
-      this.backups = await this.apiService.getBackups();
+      const b = await this.apiService.getBackups();
+      this.backups.set(b);
     } catch (e) {
       console.warn('No se pudieron listar los respaldos:', e);
     } finally {
-      this.loadingBackups = false;
+      this.loadingBackups.set(false);
+      this.cdr.markForCheck();
     }
   }
 
   async createBackup() {
-    this.creatingBackup = true;
+    this.creatingBackup.set(true);
+    this.cdr.markForCheck();
     try {
       const res = await this.apiService.createBackupNow();
       this.notify(`Copia de seguridad generada: ${res.fileName}`);
@@ -1218,7 +1236,8 @@ export class AppComponent implements OnInit, OnDestroy {
     } catch (e) {
       this.notify('Error al generar la copia de seguridad: ' + (e as Error).message);
     } finally {
-      this.creatingBackup = false;
+      this.creatingBackup.set(false);
+      this.cdr.markForCheck();
     }
   }
 

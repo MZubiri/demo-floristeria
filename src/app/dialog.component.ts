@@ -7,7 +7,7 @@ import { IconComponent } from './icon.component';
  <ng-content/>
  </dialog>`})
 export class DialogComponent implements AfterViewInit,OnDestroy {
- @Input() title=''; @Input() eyebrow='FLORÉ · DEMO'; @Input() wide=false;
+ @Input() title=''; @Input() eyebrow='FLORISTERÍA LA CARRETA'; @Input() wide=false;
  @Output() dismiss=new EventEmitter<void>(); @ViewChild('dialog') dialog!:ElementRef<HTMLDialogElement>;
  private previous:HTMLElement|null=null; private overflow='';
  ngAfterViewInit(){this.previous=document.activeElement as HTMLElement;this.overflow=document.body.style.overflow;document.body.style.overflow='hidden';this.dialog.nativeElement.showModal();}
