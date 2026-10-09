@@ -7,7 +7,7 @@ import { OrderFormComponent } from './order-form.component';
 import { AppStore } from './store';
 import { ApiService, SyncStatus } from './api.service';
 import {
-  type Order, type OrderStatus, type Product, type Material, type User, type Role, type Attendance,
+  type Order, type Line, type OrderStatus, type Product, type Material, type User, type Role, type Attendance,
   type CashRegisterSummary, type CashRegisterClosure, type BackupInfo,
   STATUSES, METHODS, total, paid, balance, orderCost, paymentLabel, nextStatus,
   reserved, available, dayKey, offsetDay, blankOrder, newLine, saveOrder, addPayment,
@@ -501,12 +501,65 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   // --- GESTIÓN DE PRODUCTOS Y RECETAS ---
+  getCategoryPrefix(category: string): string {
+    const cat = (category || '').toLowerCase().trim();
+    if (cat.includes('ram')) return 'LC-RAM-';
+    if (cat.includes('prem')) return 'LC-PRE-';
+    if (cat.includes('plan')) return 'LC-PLA-';
+    if (cat.includes('condol')) return 'LC-CON-';
+    if (cat.includes('detall')) return 'LC-DET-';
+    if (cat.includes('centr') || cat.includes('arreg')) return 'LC-ARR-';
+    return 'LC-ART-';
+  }
+
+  generateNextSku(prefixOrCategory?: string): string {
+    let prefix = (prefixOrCategory || '').trim();
+    if (!prefix || !prefix.includes('-')) {
+      prefix = this.getCategoryPrefix(prefix);
+    }
+    if (!prefix.endsWith('-')) {
+      prefix += '-';
+    }
+
+    const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`^${escaped}(\\d+)$`, 'i');
+
+    let maxNum = 0;
+    for (const prod of this.state().products) {
+      if (prod.sku) {
+        const match = prod.sku.trim().match(regex);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (!isNaN(num) && num > maxNum) {
+            maxNum = num;
+          }
+        }
+      }
+    }
+
+    const nextNum = maxNum + 1;
+    return `${prefix}${String(nextNum).padStart(3, '0')}`;
+  }
+
+  regenerateProductSku() {
+    const currentSku = this.productForm.sku?.trim() || '';
+    const matchPrefix = currentSku.match(/^([A-Za-z0-9]+-[A-Za-z0-9]+-)/);
+    const prefix = matchPrefix ? matchPrefix[1] : this.getCategoryPrefix(this.productForm.category);
+    this.productForm.sku = this.generateNextSku(prefix);
+  }
+
+  onProductCategoryChange(newCategory: string) {
+    if (!this.productForm.id || !this.productForm.sku || /^LC-[A-Z]+-\d+$/i.test(this.productForm.sku)) {
+      this.productForm.sku = this.generateNextSku(newCategory);
+    }
+  }
+
   openProductModal(p?: Product) {
     if (p) {
       this.productForm = {
         id: p.id,
         name: p.name,
-        sku: p.sku || '',
+        sku: p.sku || this.generateNextSku(p.category),
         category: p.category || 'Ramos',
         price: p.price,
         labor: p.labor || 0,
@@ -515,14 +568,15 @@ export class AppComponent implements OnInit, OnDestroy {
         recipe: (p.recipe || []).map(r => ({ ...r }))
       };
     } else {
+      const defaultCategory = 'Ramos';
       this.productForm = {
         id: '',
         name: '',
-        sku: 'LC-RAM-' + String(this.state().products.length + 1).padStart(3, '0'),
-        category: 'Ramos',
+        sku: this.generateNextSku(defaultCategory),
+        category: defaultCategory,
         price: 150000,
         labor: 15000,
-        image: 'https://floreria.molinazdev.lat/images/romantic-roses.jpg',
+        image: '',
         description: '',
         recipe: []
       };
@@ -1078,9 +1132,47 @@ export class AppComponent implements OnInit, OnDestroy {
     return this.statuses.find(s => s.value === st)?.color || 'neutral';
   }
 
-  image(o: Order) {
-    const prod = this.state().products.find(p => p.id === o.items[0]?.productId);
-    return prod?.image || 'assets/rosas.svg';
+  resolveImageUrl(path?: string | null): string {
+    if (!path) return 'assets/rosas.svg';
+    if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('blob:') || path.startsWith('data:')) {
+      return path;
+    }
+    const clean = path.startsWith('/') ? path : `/${path}`;
+    return `https://floreria.molinazdev.lat${clean}`;
+  }
+
+  onImageError(event: Event) {
+    const img = event.target as HTMLImageElement;
+    if (img && !img.src.includes('rosas.svg')) {
+      img.src = 'assets/rosas.svg';
+    }
+  }
+
+  itemImage(item?: Line): string {
+    if (!item) return 'assets/rosas.svg';
+    const prod = this.state().products.find(p => String(p.id) === String(item.productId))
+      || this.state().products.find(p => p.name.toLowerCase() === item.name?.toLowerCase());
+    return this.resolveImageUrl(prod?.image);
+  }
+
+  image(o: Order): string {
+    if (o.finalArrangementPhotoUrl) {
+      return this.resolveImageUrl(o.finalArrangementPhotoUrl);
+    }
+    const firstItem = o.items?.[0];
+    if (firstItem) {
+      const prod = this.state().products.find(p => String(p.id) === String(firstItem.productId))
+        || this.state().products.find(p => p.name.toLowerCase() === firstItem.name?.toLowerCase());
+      if (prod?.image) {
+        return this.resolveImageUrl(prod.image);
+      }
+    }
+    return 'assets/rosas.svg';
+  }
+
+  onFinalPhotoUploaded(order: Order, url: string) {
+    order.finalArrangementPhotoUrl = url;
+    this.notify('Fotografía del arreglo final guardada y actualizada en el rastreo web en vivo.');
   }
 
   materialName(id: string) {

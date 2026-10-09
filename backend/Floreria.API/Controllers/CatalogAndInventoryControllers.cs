@@ -84,6 +84,32 @@ public class ProductsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<object>> Create([FromBody] SaveProductDto dto)
     {
+        string sku = dto.Sku?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(sku))
+        {
+            var cat = (dto.Category ?? "Ramos").Trim().ToLowerInvariant();
+            string prefix = "LC-ART-";
+            if (cat.Contains("ram")) prefix = "LC-RAM-";
+            else if (cat.Contains("prem")) prefix = "LC-PRE-";
+            else if (cat.Contains("plan")) prefix = "LC-PLA-";
+            else if (cat.Contains("condol")) prefix = "LC-CON-";
+            else if (cat.Contains("detall")) prefix = "LC-DET-";
+            else if (cat.Contains("centr") || cat.Contains("arreg")) prefix = "LC-ARR-";
+
+            var existingSkus = await _context.Products
+                .Where(p => p.Sku != null && p.Sku.StartsWith(prefix))
+                .Select(p => p.Sku!)
+                .ToListAsync();
+
+            int max = 0;
+            foreach (var s in existingSkus)
+            {
+                var numPart = s.Substring(prefix.Length);
+                if (int.TryParse(numPart, out int n) && n > max) max = n;
+            }
+            sku = $"{prefix}{(max + 1):D3}";
+        }
+
         var prod = new Product
         {
             Name = dto.Name,
@@ -95,7 +121,7 @@ public class ProductsController : ControllerBase
             Description = dto.Description ?? "",
             DescriptionEn = dto.Description ?? "",
             IsActive = dto.IsActive,
-            Sku = !string.IsNullOrWhiteSpace(dto.Sku) ? dto.Sku : $"LC-{dto.Category.ToUpper()[..Math.Min(3, dto.Category.Length)]}-001"
+            Sku = sku
         };
 
         if (dto.Recipe != null)
